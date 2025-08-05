@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: SYNCO
+Version: 0.1
+Summary: SYNCO: A tool for computational and experimental synergy convergence for post-processing analysis
+Home-page: https://github.com/ViviamSB/SYNCO
+Author: Viviam Solangeli Bermudez
+Author-email: viviamsb@ntnu.no
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
