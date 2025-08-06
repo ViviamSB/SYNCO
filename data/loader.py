@@ -2,6 +2,7 @@ import pandas
 import os
 import shutil
 import sys
+import fnmatch
 from pathlib import Path
 from datetime import datetime
 
@@ -12,8 +13,12 @@ except ImportError:
     # Add parent directory to path for notebook/standalone usage
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import ensure_directory, copy_files, load_dataframe
+    
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+# CLASS: InsilicoDataLoader
+# MAIN METHODS: make_analysis_folders() load_predictions()
 
-
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
 class InsilicoDataLoader:
     """
     InsilicoDataLoader is a class for loading and processing in silico synergy data from the DrugLogics (or BooLEVARD) pipeline.
@@ -24,16 +29,17 @@ class InsilicoDataLoader:
     Args:
 
     Methods:
-        get_analysis_folders: Create a main analysis folder and cell line sub-folders with the results files.
+        make_analysis_folders: Create a main analysis folder and cell line sub-folders with the results files.
         load_predictions: Load the observed and ensemble-wise synergies files into dataframes for all cell lines.
         
     """
 
     def __init__(self,
                 base_path: str = None, # Path to the base folder.
-                cell_info_path: str = None, # Path to the cell line information folder.
-                run_results_path: str = None, # Path to the pipeline results folder.
+                cell_info_path: str = None, # Path to the cell line information folder. Contains sub-folders for each cell line.
+                run_results_path: str = None, # Path to the pipeline results folder. Contains sub-folders for each cell line.
                 pipeline: str = 'DrugLogics', # Name of the pipeline. DrugLogics or BooLEVARD.
+                experimental_observations: bool = False, # If True, load experimental observations.
                 cell_lines: list = None, # List of cell lines.
                 run_date: str = None, # Specific date run folder.
                 analysis_folder: str = None, # Name of the analysis folder to create.
@@ -45,6 +51,7 @@ class InsilicoDataLoader:
         self.cell_line_info_path = cell_info_path
         self.run_results_path = run_results_path
         self.pipeline = pipeline
+        self.experimental_observations = experimental_observations
         self.cell_lines = cell_lines if cell_lines else self._discover_cell_lines()
         self.run_date = run_date
         
@@ -143,37 +150,49 @@ class InsilicoDataLoader:
         return None
     
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-    def _copy_pipeline_files(self, source_dir: str, destination_dir: str, cell_line: str) -> int:
+    def _copy_pipeline_files(self, source_dir: str, destination_dir: str, cell_line: str, run_date: str = None) -> int:
         """
         Copy files from the pipeline output to the analysis folder.
 
         Args:
-            file_paths (list): List of file paths to copy.
-            analysis_folder (str): The analysis folder path.
-            patterns (list): List of file patterns to filter files.
-            overwrite (bool): If True, overwrite existing files in the destination.
+            source_dir (str): Source directory to copy files from.
+            destination_dir (str): Destination directory to copy files to.
+            cell_line (str): The name of the cell line.
+            run_date (str): Optional run date to filter subdirectories.
 
         Returns:
             int: Number of files copied.
         """
         if self.pipeline not in ['DrugLogics', 'BooLEVARD']:
             raise ValueError("Unsupported pipeline. Supported pipelines are: 'DrugLogics' and 'BooLEVARD'.")
+        
+        # Check if source directory exists
+        if not os.path.exists(source_dir):
+            if self.verbose:
+                print(f"Source directory does not exist: {source_dir}")
+            return 0
+            
         if self.pipeline == 'DrugLogics':
-            file_patterns = ['*ensemblewise_synergies*', '*observed_synergy*']
+            file_patterns = ['*ensemblewise_synergies*']
         elif self.pipeline == 'BooLEVARD':
             file_patterns = [f'SynergyExcess_{cell_line}.tsv']
+        if self.experimental_observations:
+            file_patterns.append('*observed_synergies*')
 
-        # Use the utils copy_files function to copy files
+        # Use the enhanced copy_files function with run_date filtering
         files_copied = copy_files(
             sources=[source_dir],
             destination_dir=destination_dir,
             file_patterns=file_patterns,
             overwrite=True,
-            verbose=self.verbose
+            verbose=self.verbose,
+            run_date_filter=run_date if self.pipeline == 'DrugLogics' else None
         )
+        
         if files_copied == 0:
             if self.verbose:
                 print(f"No files copied for cell line {cell_line} from {source_dir}.")
+            
         return files_copied
     
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,20 +214,27 @@ class InsilicoDataLoader:
             ensure_directory(cell_line_folder, reset=False)
         
         if self.pipeline == 'DrugLogics':
-            latest_run_folder = self._get_latest_run_folder(cell_line)
-            if latest_run_folder is None:
-                if self.verbose:
-                    print("Skipping file copy.")
-                files_copied = 0
+            # For DrugLogics, copy from the cell line directory which contains both 
+            # observed_synergies and run subfolders
+            cell_line_source_path = os.path.join(self.run_results_path, cell_line)
+            if os.path.exists(cell_line_source_path):
+                files_copied = self._copy_pipeline_files(
+                    cell_line_source_path, 
+                    cell_line_folder, 
+                    cell_line, 
+                    self.run_date
+                )
             else:
-                # Copy files from the latest run folder to the cell line folder
-                files_copied = self._copy_pipeline_files(latest_run_folder, cell_line_folder, cell_line)
-            
+                if self.verbose:
+                    print(f"No cell line folder found for {cell_line} in {self.run_results_path}")
+                files_copied = 0
+                
         elif self.pipeline == 'BooLEVARD':
             # For BooLEVARD, look for the specific cell line subfolder in run_results_path
             cell_line_subfolder_path = os.path.join(self.run_results_path, cell_line)
             if os.path.exists(cell_line_subfolder_path):
                 # Copy files from the BooLEVARD results folder to the cell line folder
+                # BooLEVARD doesn't use run_date filtering
                 files_copied = self._copy_pipeline_files(cell_line_subfolder_path, cell_line_folder, cell_line)
             else:
                 if self.verbose:
@@ -225,9 +251,9 @@ class InsilicoDataLoader:
                 print(f"No files copied for cell line {cell_line}. Folder created but empty: {cell_line_folder}")
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-# Main method: get_analysis_folders
+# Main method: make_analysis_folders
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-    def get_analysis_folders(self) -> None:
+    def make_analysis_folders(self) -> None:
         """
         Create the main analysis folder and sub-folders for each cell line with the results files.
         """
@@ -247,7 +273,7 @@ class InsilicoDataLoader:
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    def load_observed_synergies(self, cell_line_path: str) -> pandas.DataFrame:
+    def _load_observed_synergies(self, cell_line_path: str) -> pandas.DataFrame:
         """
         Load the observed synergies file for a specific cell line.
         Returns:
@@ -264,7 +290,7 @@ class InsilicoDataLoader:
                 print(f"No observed synergies file found in {cell_line_path}")
             return None
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-    def load_ensemble_synergies(self, cell_line_path: str, cell_line_name: str) -> pandas.DataFrame:
+    def _load_ensemble_synergies(self, cell_line_path: str, cell_line_name: str) -> pandas.DataFrame:
         """
         Load the ensemble synergies file for a specific cell line.
         Returns:
@@ -300,7 +326,7 @@ class InsilicoDataLoader:
         Returns:
             dict: A dictionary with cell line names as keys and DataFrames as values.
         """
-        synergy_results_dict = {}
+        synergy_predictions_dict = {}
 
         # Use the provided analysis folder or the default one for the class
         analysis_folder = analysis_folder if analysis_folder else self.analysis_folder_path
@@ -314,22 +340,20 @@ class InsilicoDataLoader:
             if not os.path.exists(cell_line_path):
                 if self.verbose:
                     print(f"Sub-folder for cell line {cell_line} does not exist in {analysis_folder}. Skipping.")
-                    synergy_results_dict[cell_line] = (None, None)
+                    synergy_predictions_dict[cell_line] = (None, None)
                 continue
 
             # Load observed synergies if requested
             if experimental_observations:
-                observed_synergies_df = self.load_observed_synergies(cell_line_path)
+                observed_synergies_df = self._load_observed_synergies(cell_line_path)
             else:
                 observed_synergies_df = None
             # Load ensemble synergies
-            ensemble_synergies_df = self.load_ensemble_synergies(cell_line_path, cell_line)
+            ensemble_synergies_df = self._load_ensemble_synergies(cell_line_path, cell_line)
 
             # Store the results in the dictionary.
-            synergy_results_dict[cell_line] = (observed_synergies_df, ensemble_synergies_df)
+            synergy_predictions_dict[cell_line] = (observed_synergies_df, ensemble_synergies_df)
             
         # Store the dictionary in the class.
-        self.synergy_results_dict = synergy_results_dict
-        return synergy_results_dict
-
-
+        self.synergy_results_dict = synergy_predictions_dict
+        return synergy_predictions_dict

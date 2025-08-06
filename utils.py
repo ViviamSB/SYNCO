@@ -1,11 +1,15 @@
 from pathlib import Path
 import shutil
 import pandas
-from typing import Union, Optional, Iterable, List
+from typing import Union, Optional, Iterable, List, Sequence, Any
 import fnmatch
 
-PathLike = Union[str, Path]
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
+# FILE SYSTEM UTILITIES
+# FUNCTIONS: ensure_directory() copy_files() load_dataframe()
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+PathLike = Union[str, Path]
 def ensure_directory(path: PathLike, reset: bool = False) -> Path:
     """
     Ensure that a directory exists, creating it if necessary.
@@ -22,13 +26,14 @@ def ensure_directory(path: PathLike, reset: bool = False) -> Path:
     p.mkdir(parents=True, exist_ok=True)
     return p
 
-#///////////////////////////////////////////////////////////////////////////////////////////////////////
+#/////////////////////////////////////////////////////
 def copy_files(
         sources: Iterable[PathLike],
         destination_dir: PathLike,
         file_patterns: Optional[Union[str, List[str]]] = None,
         overwrite: bool = False,
-        verbose: bool = False
+        verbose: bool = False,
+        run_date_filter: Optional[str] = None
         ) -> int:
     """
     Copy files from source paths to a destination directory, optionally filtering by patterns.
@@ -39,6 +44,7 @@ def copy_files(
         patterns (Optional[Union[str, List[str]]]): Patterns to filter files. If None, all files are copied.
         overwrite (bool): If True, overwrite existing files in the destination.
         verbose (bool): If True, print detailed information about the copying process.
+        run_date_filter (Optional[str]): If provided, only copy files from subdirectories containing this date string.
     """
     # Normalize patterns to a list
     patterns: List[str]
@@ -70,6 +76,20 @@ def copy_files(
             if patterns and not any(fnmatch.fnmatch(path.name, pat) for pat in patterns):
                 continue
 
+            # Apply run_date_filter if specified
+            if run_date_filter:
+                relative_path = path.relative_to(src_path)
+                parent_dirs = relative_path.parts[:-1]  # Get all parent directories
+                
+                # For files in root directory (like observed_synergies), always copy
+                if len(parent_dirs) == 0:
+                    pass  # Copy this file
+                # For files in subdirectories, only copy if directory contains the run_date
+                elif any(run_date_filter in dir_name for dir_name in parent_dirs):
+                    pass  # Copy this file
+                else:
+                    continue  # Skip this file
+
             target = dest / path.name
             if target.exists():
                 if overwrite:
@@ -80,13 +100,13 @@ def copy_files(
             shutil.copy2(path, target)
             copied_files += 1
             if verbose:
-                print(f"Copied {path} to {target}")
+                print(f"Copied {patterns} to {dest}")
     if verbose:
         print(f"Total files copied: {copied_files}")
     
     return copied_files
 
-#//////////////////////////////////////////////////////////////////////////////////////////////////////////
+#/////////////////////////////////////////////////////
 def load_dataframe(
         folder: PathLike,
         pattern: str,
@@ -112,3 +132,85 @@ def load_dataframe(
 
     df = pandas.read_csv(matches[0], **read_kwargs)
     return df
+
+
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+# DATAFRAME UTILITIES
+# FUNCTIONS: split_column() apply_mapping() deduplicate_list_column() flag_matches()
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+def split_column(
+        df: pandas.DataFrame,
+        source_col: str,
+        new_cols: List[str],
+        separator: str = '-'
+        ) -> pandas.DataFrame:
+    """
+    Split a column in a DataFrame into multiple columns based on a separator.
+    """
+    df = df.copy()
+    # Split the source column into new columns
+    df[new_cols] = df[source_col].str.split(separator, expand=True)
+    return df
+
+#/////////////////////////////////////////////////////
+def apply_mapping(
+        df: pandas.DataFrame,
+        key_col: str,
+        new_col: str,
+        dictionary: Optional[dict] = None,
+        mapping_df: Optional[pandas.DataFrame] = None,
+        mapping_indexcol: Optional[str] = None,
+        mapping_valuecol: Optional[str] = None
+        ) -> pandas.DataFrame:
+    """
+    Apply a mapping to a DataFrame column using a dictionary or another DataFrame.
+    """
+    df = df.copy()
+    if dictionary is not None:
+        df[new_col] = df[key_col].map(dictionary)
+    elif mapping_df is not None:
+        if mapping_indexcol is None or mapping_valuecol is None:
+            raise ValueError("If using mapping_df, both mapping_indexcol and mapping_valuecol must be specified.")
+        mapping_dict = mapping_df.set_index(mapping_indexcol)[mapping_valuecol].to_dict()
+        df[new_col] = df[key_col].map(mapping_dict)
+    else:
+        raise ValueError("Either a dictionary or a mapping DataFrame must be provided.")
+    return df
+
+#/////////////////////////////////////////////////////
+def deduplicate_list_column(
+        df: pandas.DataFrame,
+        column: str,
+        as_string: bool = False,
+        separator: str = ', '
+        ) -> pandas.DataFrame:
+    """
+    Deduplicate entries in a DataFrame column that contains lists or strings of items.
+    If value in column is None, it will remain None.
+    """
+    df = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame.")
+    df[column] = df[column].apply(lambda x: sorted(set(x), key=x.index) if isinstance(x, list) else x if x is not None else None)
+    if as_string:
+        df[column] = df[column].apply(lambda lst: separator.join(lst) if isinstance(lst, list) else lst if lst is not None else None)
+    return df
+
+#/////////////////////////////////////////////////////
+def flag_matches(
+        df: pandas.DataFrame,
+        key_col: str,
+        new_col: str,
+        match_values: Sequence,
+        true_values: Any = 1,
+        false_values: Any = 0
+        ) -> pandas.Series:
+    """
+    Flag matches in a DataFrame column based on a list of values.
+    """
+    df = df.copy()
+    df[new_col] = df[key_col].apply(lambda x: true_values if x in match_values else false_values)
+    return df[new_col]
+
+    
