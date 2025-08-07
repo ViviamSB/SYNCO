@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from utils import split_column, apply_mapping, deduplicate_list_column, flag_matches
+from utils import split_column, apply_mapping, deduplicate_list_column
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # MAIN FEATURE: synergy_predictions
@@ -16,36 +16,65 @@ def _merge_synergies(
         ) -> pandas.DataFrame:
     """
     Merge pipeline predictions for all cell lines into a single DataFrame.
+    Handles different data lengths by filling missing values with NaN.
+    Handles both scenarios for observations:
+    1. Observations with synergy values
+    2. Observations with only perturbation names
     """
     synergy_predictions_df = pandas.DataFrame()
     synergy_observations_df = pandas.DataFrame()
+    
     for cell_line, (observed, predicted) in synergy_results_dict.items():
-        if predicted is None:
+        # Handle predictions
+        if predicted is not None:
+            if synergy_predictions_df.empty:
+                synergy_predictions_df = predicted.copy()
+            else:
+                synergy_predictions_df = pandas.merge(
+                    synergy_predictions_df,
+                    predicted,
+                    on='Perturbation',
+                    how='outer',
+                    suffixes=('', f'_{cell_line}')
+                )
+        else:
             print(f"Warning: No predictions for cell line {cell_line}. Skipping.")
-            continue
-        if synergy_predictions_df.empty:
-            synergy_predictions_df = predicted.copy()
+        
+        # Handle observations
+        if observed is not None:
+            # Check if observed data has synergy values or just perturbation names
+            value_columns = [col for col in observed.columns if col != 'Perturbation']
+            
+            if len(value_columns) > 0:
+                # Scenario 1: Has synergy values - merge normally
+                    # Select synergy column
+                observed = observed[['Perturbation', 'synergy']].copy()
+                observed.rename(columns={'synergy': f'Experimental_{cell_line}'}, inplace=True) 
+                if synergy_observations_df.empty:
+                    synergy_observations_df = observed.copy()
+                else:
+                    synergy_observations_df = pandas.merge(
+                        synergy_observations_df,
+                        observed,
+                        on='Perturbation',
+                        how='outer'
+                    )
+            else:
+                # Scenario 2: Only perturbation names - add a flag column
+                observed_with_flag = observed.copy()
+                observed_with_flag[f'Experimental_{cell_line}'] = 1
+                
+                if synergy_observations_df.empty:
+                    synergy_observations_df = observed_with_flag.copy()
+                else:
+                    synergy_observations_df = pandas.merge(
+                        synergy_observations_df,
+                        observed_with_flag,
+                        on='Perturbation',
+                        how='outer'
+                    )
         else:
-            synergy_predictions_df = pandas.merge(
-                synergy_predictions_df,
-                predicted,
-                on='Perturbation',
-                how='outer',
-                suffixes=('', f'_{cell_line}')
-            )
-        if observed is None:
             print(f"Warning: No experimental observations for cell line {cell_line}.")
-            continue
-        if synergy_observations_df.empty:
-            synergy_observations_df = observed.copy()
-        else:
-            synergy_observations_df = pandas.merge(
-                synergy_observations_df,
-                observed,
-                on='Perturbation',
-                how='outer',
-                suffixes=('', f'_{cell_line}')
-            )
     
     return synergy_predictions_df, synergy_observations_df
 
@@ -105,20 +134,19 @@ def _add_experimental_observations(
     ) -> pandas.DataFrame:
     """
     Add experimental observations to the DataFrame.
+    
     Args:
         df (DataFrame): DataFrame to add experimental observations to.
         synergy_observations_df (DataFrame): DataFrame containing experimental observations.
     """
-    # Find perturbations and flag matches for each cell line
-    for col in synergy_observations_df.columns:
-        if col.startswith('Perturbation'):
-            continue  # Skip the Perturbation column
-        df = flag_matches(
-            df,
-            key_col='Perturbation',
-            new_col=f'Experiment_{col}',
-            match_values=synergy_observations_df[col].dropna().unique()
-        )
+    # Merge the experimental observations
+    df = pandas.merge(
+        df,
+        synergy_observations_df,
+        on='Perturbation',
+        how='left'
+    )
+    
     return df
 
 #/////////////////////////////////////////////////////

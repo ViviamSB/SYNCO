@@ -6,7 +6,8 @@ import fnmatch
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # FILE SYSTEM UTILITIES
-# FUNCTIONS: ensure_directory() copy_files() load_dataframe()
+# FUNCTIONS: ensure_directory() create_cell_line_dir() get_output_file()
+#            copy_files() load_dataframe()
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 PathLike = Union[str, Path]
@@ -25,6 +26,28 @@ def ensure_directory(path: PathLike, reset: bool = False) -> Path:
         shutil.rmtree(p)
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+#/////////////////////////////////////////////////////
+def create_cell_line_dir(cell_line: str, output_directory: PathLike) -> Path:
+    """
+    Create a directory for a specific cell line within the output directory.
+    
+    Args:
+        cell_line (str): The name of the cell line.
+        output_directory (PathLike): The base output directory.
+    
+    Returns:
+        The path object of the created cell line directory.
+    """
+    cell_line_dir = ensure_directory(Path(output_directory) / cell_line)
+    return cell_line_dir
+
+#/////////////////////////////////////////////////////
+def get_output_file(cell_line_dir: PathLike, file_name: str) -> Path:
+    """
+    Get the full path for an output file in the cell line directory.
+    """
+    return Path(cell_line_dir) / file_name
 
 #/////////////////////////////////////////////////////
 def copy_files(
@@ -137,6 +160,7 @@ def load_dataframe(
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # DATAFRAME UTILITIES
 # FUNCTIONS: split_column() apply_mapping() deduplicate_list_column() flag_matches()
+#            filter_synergies() 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 def split_column(
@@ -213,4 +237,17 @@ def flag_matches(
     df[new_col] = df[key_col].apply(lambda x: true_values if x in match_values else false_values)
     return df[new_col]
 
-    
+#/////////////////////////////////////////////////////
+def filter_synergies(
+        cell_line: str,
+        df: pandas.DataFrame,
+        column_cell_lines: str,
+        column_synergies: str
+        ) -> pandas.DataFrame:
+    """
+    Filter a DataFrame to only include rows where the cell line matches & synergies are True (not None)
+    and the synergies column is not empty.
+    """
+    df = df.copy()
+    df = df[(df[column_cell_lines] == cell_line) & (df[column_synergies].notna())]
+    return df

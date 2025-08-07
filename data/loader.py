@@ -281,8 +281,7 @@ class InsilicoDataLoader:
         """
         file_pattern = '*observed_synergies*'
         try:
-            observed_synergies_df = load_dataframe(cell_line_path, file_pattern, header=None, names=['Perturbation'])
-            observed_synergies_df = observed_synergies_df.iloc[1:]
+            observed_synergies_df = load_dataframe(cell_line_path, file_pattern, sep='\t')
             observed_synergies_df['Perturbation'] = observed_synergies_df['Perturbation'].str.replace('~', '-')
             return observed_synergies_df
         except FileNotFoundError:
