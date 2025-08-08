@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import pandas
+import ast
 from typing import Union, Optional, Iterable, List, Sequence, Any
 import fnmatch
 
@@ -160,7 +161,7 @@ def load_dataframe(
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # DATAFRAME UTILITIES
 # FUNCTIONS: split_column() apply_mapping() deduplicate_list_column() flag_matches()
-#            filter_synergies() 
+#            filter_synergies() make_dictionary() 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 def split_column(
@@ -251,3 +252,41 @@ def filter_synergies(
     df = df.copy()
     df = df[(df[column_cell_lines] == cell_line) & (df[column_synergies].notna())]
     return df
+
+
+
+#/////////////////////////////////////////////////////
+def make_dictionary(
+        df: pandas.DataFrame,
+        key_col: str,
+        value_col: str,
+        long: Optional[str] = None, # Can be "values" or "keys" to flatten and deduplicate lists
+        ) -> dict:
+    """
+    Create a dictionary from two columns of a DataFrame.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame containing the data.
+        key_col (str): Column name to use as keys in the dictionary.
+        value_col (str): Column name to use as values in the dictionary.
+        long (bool): If True, flatten and deduplicate list values in value_col.
+    Returns:
+        dict: Dictionary with keys and values from the specified columns.
+    """
+    if key_col not in df.columns or value_col not in df.columns:
+        raise ValueError(f"Columns '{key_col}' or '{value_col}' not found in DataFrame.")
+    
+    if long == "values":
+        df[value_col] = df[value_col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith('[') else x)
+        df = df.explode(value_col)
+    if long == "keys":
+        df[key_col] = df[key_col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith('[') else x)
+        df = df.explode(key_col)
+
+    # Remove NaN values
+    df = df.dropna(subset=[key_col, value_col])
+
+    # Make dictionary
+    dictionary = df.set_index(key_col)[value_col].to_dict()
+
+    return dictionary

@@ -5,7 +5,7 @@ from typing import Optional, Union
 from utils import filter_synergies, create_cell_line_dir, get_output_file
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-# MAIN FEATURE: synergy_observations
+# MAIN FEATURE: get_experimental_cell_synergies
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #/////////////////////////////////////////////////////
@@ -56,7 +56,7 @@ def _extract_synergies(
         print(f"Error occurred while processing the DataFrame: {e}")
 
 #/////////////////////////////////////////////////////
-def get_synergies_experimental(
+def get_experimental_cell_synergies(
         cell_line: str,
         synergies_exp_df: pandas.DataFrame,
         output_directory: PathLike,
@@ -82,6 +82,8 @@ def get_synergies_experimental(
     Returns:
         bool: True if the file was created successfully, False otherwise.
     """
+    # Make sure cell_line_column is uppercase and no spaces
+    column_cell_line_name = column_cell_line_name.upper().replace("-", "")
     synergies_exp_df = filter_synergies(cell_line, synergies_exp_df, column_cell_line_name, column_synergy)
     if synergies_exp_df.empty:
         print(f"No synergies found for cell line {cell_line}.")
