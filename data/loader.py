@@ -16,10 +16,10 @@ except ImportError:
     
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # CLASS: InsilicoDataLoader
-# MAIN METHODS: make_analysis_folders() load_predictions()
+# MAIN METHODS: make_analysis_folders() fetch_synergy_data()
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-class InsilicoDataLoader:
+class DataLoader:
     """
     InsilicoDataLoader is a class for loading and processing in silico synergy data from the DrugLogics (or BooLEVARD) pipeline.
 
@@ -40,7 +40,7 @@ class InsilicoDataLoader:
                 run_results_path: str = None, # Path to the pipeline results folder. Contains sub-folders for each cell line.
                 pipeline: str = 'DrugLogics', # Name of the pipeline. DrugLogics or BooLEVARD.
                 experimental_observations: bool = False, # If True, load experimental observations.
-                cell_lines: list = None, # List of cell lines.
+                cell_line_list: list = None, # List of cell lines.
                 run_date: str = None, # Specific date run folder.
                 analysis_folder: str = None, # Name of the analysis folder to create.
                 verbose: bool = False, # Verbose mode.
@@ -52,7 +52,7 @@ class InsilicoDataLoader:
         self.run_results_path = run_results_path
         self.pipeline = pipeline
         self.experimental_observations = experimental_observations
-        self.cell_lines = cell_lines if cell_lines else self._discover_cell_lines()
+        self.cell_lines = cell_line_list if cell_line_list else self._discover_cell_lines()
         self.run_date = run_date
         
 
@@ -317,15 +317,15 @@ class InsilicoDataLoader:
             return None
     
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-# Main method: load_predictions
+# Main method: fetch_synergy_data
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
-    def load_predictions(self, analysis_folder: str = None, experimental_observations: bool = False) -> dict:
+    def fetch_synergy_data(self, analysis_folder: str = None, experimental_observations: bool = False) -> dict:
         """
         Load the observed and ensemble-wise synergies files into dataframes for all cell lines.
         Returns:
             dict: A dictionary with cell line names as keys and DataFrames as values.
         """
-        synergy_predictions_dict = {}
+        synergy_data_dict = {}
 
         # Use the provided analysis folder or the default one for the class
         analysis_folder = analysis_folder if analysis_folder else self.analysis_folder_path
@@ -339,7 +339,7 @@ class InsilicoDataLoader:
             if not os.path.exists(cell_line_path):
                 if self.verbose:
                     print(f"Sub-folder for cell line {cell_line} does not exist in {analysis_folder}. Skipping.")
-                    synergy_predictions_dict[cell_line] = (None, None)
+                    synergy_data_dict[cell_line] = (None, None)
                 continue
 
             # Load observed synergies if requested
@@ -351,8 +351,8 @@ class InsilicoDataLoader:
             ensemble_synergies_df = self._load_ensemble_synergies(cell_line_path, cell_line)
 
             # Store the results in the dictionary.
-            synergy_predictions_dict[cell_line] = (observed_synergies_df, ensemble_synergies_df)
+            synergy_data_dict[cell_line] = (observed_synergies_df, ensemble_synergies_df)
             
         # Store the dictionary in the class.
-        self.synergy_results_dict = synergy_predictions_dict
-        return synergy_predictions_dict
+        self.synergy_results_dict = synergy_data_dict
+        return synergy_data_dict

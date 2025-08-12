@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import pandas
+import json
 import ast
 from typing import Union, Optional, Iterable, List, Sequence, Any
 import fnmatch
@@ -8,7 +9,7 @@ import fnmatch
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # FILE SYSTEM UTILITIES
 # FUNCTIONS: ensure_directory() create_cell_line_dir() get_output_file()
-#            copy_files() load_dataframe()
+#            copy_files() load_dataframe() save_file()
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 PathLike = Union[str, Path]
@@ -157,6 +158,49 @@ def load_dataframe(
     df = pandas.read_csv(matches[0], **read_kwargs)
     return df
 
+#/////////////////////////////////////////////////////
+def save_file(
+        data,
+        output_path: str,
+        file_type: str = 'csv',
+        **kwargs
+) -> None:
+    """
+    Save data to a file in the specified format.
+
+    Args:
+        data: The data to save (DataFrame, dictionary, or txt).
+        output_path: The path to the output file.
+        file_type: The type of file to save (e.g., 'csv', 'json').
+        **kwargs: Additional arguments to pass to the save function.
+    """
+    if file_type == 'csv':
+        if isinstance(data, pandas.DataFrame):
+            data.to_csv(output_path, **kwargs)
+            print(f'Data saved to {output_path} as CSV.')
+        else:
+            raise ValueError('For CSV, data should be a pandas DataFrame.')
+    elif file_type == 'json':
+        if isinstance(data, (pandas.DataFrame, dict)):
+            with open(output_path, 'w') as file:
+                json.dump(data.to_dict(orient='records') if isinstance(data, pandas.DataFrame) else data, file, **kwargs)
+                print(f'Data saved to {output_path} as JSON.')
+        else:
+            raise ValueError('For JSON, data should be a DataFrame or dictionary.')
+    elif file_type == 'txt':
+        if isinstance(data, (pandas.DataFrame, dict, str)):
+            with open(output_path, 'w') as f:
+                if isinstance(data, pandas.DataFrame):
+                    f.write(data.to_string(**kwargs))
+                elif isinstance(data, dict):
+                    json.dump(data, f, **kwargs)
+                else:
+                    f.write(str(data))
+        else:
+            raise ValueError('For TXT, data should be a DataFrame, dictionary, or string.')
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
+    
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # DATAFRAME UTILITIES

@@ -2,9 +2,10 @@ import pandas
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
-from utils import split_column, apply_mapping, deduplicate_list_column
+from utils import split_column, apply_mapping, deduplicate_list_column, save_file
+PathLike = Union[str, Path]
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # MAIN FEATURE: synergy_predictions
@@ -204,6 +205,7 @@ def get_synergy_predictions(
         target_type: str = 'targets',
         remove_duplicates: bool = False,
         add_experimental_observations: bool = False,
+        output_path: Optional[PathLike] = None
     ) -> pandas.DataFrame:
     """
     Process synergy predictions from the results dictionary.
@@ -231,7 +233,10 @@ def get_synergy_predictions(
     # Step 5: Add experimental observations (Optional)
     if add_experimental_observations:
         synergy_predictions_df = _add_experimental_observations(synergy_predictions_df, synergy_observations_df)
-        
+    
+    if output_path:
+        save_file(synergy_predictions_df, output_path + 'synergy_predictions.csv')
+
     return synergy_predictions_df
 
 

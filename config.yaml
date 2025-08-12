@@ -1,0 +1,50 @@
+# config.yaml - SYNCO pipeline configuration
+
+# === General settings ===
+mode: "notebook"
+
+# === General Paths ===
+input_path: "input_synco"
+output_path: "output_synco"
+
+# === Specific Paths ===
+base_runs_path: 'pipeline'
+cell_run_results_path: base_runs_path + '\\cell_runs'
+analysis_folder_path: base_runs_path + '\\analysis'
+
+# === General Parameters ===
+cell_line_list: ['C2BBE1', 'CAR1']
+verbose: true
+
+# === Specific Parameters ===
+
+# MAKE_ANALYSIS_FOLDER
+run_date: '20250804'
+pipeline: 'DrugLogics'
+
+# FETCH_SYNERGY_DATA
+experimental_observations: true
+
+# SYNERGY PREDICTIONS
+combination_type: 'drugnames'
+drugID_type: 'drug_name'
+target_type: 'node_targets'
+remove_duplicates: false
+add_experimental_observations: false
+
+# CONVERGE SYNERGIES
+  # experimental
+exp_anchorID: 'drug1_ID'
+exp_libraryID: 'drug2_ID'
+exp_anchor_name: 'drug1'
+exp_library_name: 'drug2'
+  # predictions
+pred_anchorID: 'PD_A'
+pred_libraryID: 'PD_B'
+pred_anchor_name: 'drug_name_A'
+pred_library_name: 'drug_name_B'
+predicted: true
+
+# COMPARE SYNERGIES
+threshold: 0.0
+type: 'inhibitor_combination'

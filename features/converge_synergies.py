@@ -2,7 +2,7 @@ import pandas
 from pathlib import Path
 from typing import Optional, Union
 
-from utils import apply_mapping
+from utils import apply_mapping, save_file
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # MAIN FEATURE: converge_synergies
@@ -129,6 +129,47 @@ def _process_predictions(
     return inhibitor_df, drugnames_df
 
 #/////////////////////////////////////////////////////
+def _process_experimental(
+        df: pandas.DataFrame,
+        synergy_column: str = 'synergy',
+        cell_line: str = 'cell_line',
+        cell_line_list: Optional[list] = None
+) -> pandas.DataFrame:
+    """
+    Process experimental synergies by:
+    - Grouping by inhibitor combination and cell line
+    - Calculating mean synergy values
+    - Melting the DataFrame to long format
+    Args:
+        df (pandas.DataFrame): DataFrame containing synergy data.
+        synergy_column (str): Column name for synergy values.
+        cell_line (str): Column name for cell line identifiers.
+        cell_line_list (list, optional): List of cell line names to filter the DataFrame.
+
+    Returns:
+        pandas.DataFrame: Processed DataFrame with mean synergy values.
+    """
+    if cell_line_list is not None:
+        df = df[df[cell_line].isin(cell_line_list)]
+
+    # Group by inhibitor combination and cell line, and calculate mean synergy
+    inhibitor_group_synergies_df = _group_by_inhibitor_combination(df, synergy_column, cell_line)
+    inhibitor_group_synergies_df = inhibitor_group_synergies_df.pivot(index='inhibitor_combination', columns=cell_line, values='mean_synergy')
+    inhibitor_group_synergies_df = inhibitor_group_synergies_df.reset_index().melt(
+        id_vars=['inhibitor_combination'],
+        var_name=cell_line,
+        value_name=synergy_column
+    )
+
+    drug_names_synergies_df = df.pivot(index='drug_combination', columns=cell_line, values=synergy_column)
+    drug_names_synergies_df = drug_names_synergies_df.reset_index().melt(
+        id_vars=['drug_combination'],
+        var_name=cell_line,
+        value_name=synergy_column
+    )
+    return inhibitor_group_synergies_df, drug_names_synergies_df
+
+#/////////////////////////////////////////////////////
 def converge_synergies(
         df: pandas.DataFrame,
         anchorID: str,
@@ -140,7 +181,8 @@ def converge_synergies(
         cell_line_list: Optional[list] = None,
         anchor_name: Optional[str] = None,
         library_name: Optional[str] = None,
-        predicted: bool = False
+        predicted: bool = False,
+        output_path: Optional[PathLike] = None
 ) -> pandas.DataFrame:
     """
     Converge experimental synergies by mapping inhibitor groups and targets, and calculating mean synergy.
@@ -182,20 +224,11 @@ def converge_synergies(
         inhibitor_group_synergies_df, drug_names_synergies_df = _process_predictions(df, synergy_column, cell_line, cell_line_list)
     
     if not predicted:
-        # Group by inhibitor combination and calculate mean synergy
-        drug_names_synergies_df = df.pivot(index='drug_combination', columns=cell_line, values=synergy_column)
-        inhibitor_group_synergies_df = _group_by_inhibitor_combination(df, synergy_column, cell_line)
-        inhibitor_group_synergies_df = inhibitor_group_synergies_df.pivot(index='inhibitor_combination', columns=cell_line, values='mean_synergy')
-        # melt the DataFrame to long format
-        inhibitor_group_synergies_df = inhibitor_group_synergies_df.reset_index().melt(
-            id_vars=['inhibitor_combination'],
-            var_name=cell_line,
-            value_name=synergy_column
-        )
-        drug_names_synergies_df = drug_names_synergies_df.reset_index().melt(
-            id_vars=['drug_combination'],
-            var_name=cell_line,
-            value_name=synergy_column
-        )
+        inhibitor_group_synergies_df, drug_names_synergies_df = _process_experimental(df, synergy_column, cell_line, cell_line_list)
 
+    if output_path:
+        save_file(full_df, output_path + 'full_df.csv')
+        save_file(drug_names_synergies_df, output_path + 'drug_names_synergies_df.csv')
+        save_file(inhibitor_group_synergies_df, output_path + 'inhibitor_group_synergies_df.csv')
+    
     return full_df, drug_names_synergies_df, inhibitor_group_synergies_df

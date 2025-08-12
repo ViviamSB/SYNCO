@@ -82,8 +82,8 @@ def get_experimental_cell_synergies(
     Returns:
         bool: True if the file was created successfully, False otherwise.
     """
-    # Make sure cell_line_column is uppercase and no spaces
-    column_cell_line_name = column_cell_line_name.upper().replace("-", "")
+    # Make sure values in column_cell_line_name are uppercase and no spaces
+    synergies_exp_df[column_cell_line_name] = synergies_exp_df[column_cell_line_name].str.upper().str.replace('-', '') 
     synergies_exp_df = filter_synergies(cell_line, synergies_exp_df, column_cell_line_name, column_synergy)
     if synergies_exp_df.empty:
         print(f"No synergies found for cell line {cell_line}.")
