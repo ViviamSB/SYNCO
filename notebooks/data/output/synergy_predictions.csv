@@ -1,0 +1,12 @@
+,Perturbation,C2BBE1,CAR1,PD_A,PD_B,drug_name_A,drug_name_B,node_targets_A,node_targets_B,drug_combination
+0,PD_01-PD_03,-0.0422851562500001,-0.0011905125209263,PD_01,PD_03,"Ipatasertib, Capivasertib","AZD-8055, Everolimus, Torin 1",['AKT1'],"['mTOR_c2', 'mTOR_c1']","(Ipatasertib, Capivasertib) + (AZD-8055, Everolimus, Torin 1)"
+1,PD_01-PD_04,-0.5155952926594614,-0.624606786455427,PD_01,PD_04,"Ipatasertib, Capivasertib","Lapatinib, Neratinib",['AKT1'],"['ERBB2', 'EGFR']","(Ipatasertib, Capivasertib) + (Lapatinib, Neratinib)"
+2,PD_02-PD_05,0.0,0.0,PD_02,PD_05,"PF 477736, Prexasertib","Niraparib, Olaparib","['CHEK1', 'CHEK2']",['PARP1'],"(PF 477736, Prexasertib) + (Niraparib, Olaparib)"
+3,PD_02-PD_06,-0.004193115234375,-0.0111110432942707,PD_02,PD_06,"PF 477736, Prexasertib","MK-1775 (Advosertib), MK-1775","['CHEK1', 'CHEK2']","['WEE1', 'PLK1']","(PF 477736, Prexasertib) + (MK-1775 (Advosertib), MK-1775)"
+4,PD_02-PD_07,-0.0157405598958333,-0.0279443359375,PD_02,PD_07,"PF 477736, Prexasertib",PF-3644022,"['CHEK1', 'CHEK2']",['MAPKAPK2'],"(PF 477736, Prexasertib) + (PF-3644022)"
+5,PD_02-PD_08,0.0,-0.0148749287923177,PD_02,PD_08,"PF 477736, Prexasertib",Palbociclib,"['CHEK1', 'CHEK2']","['CCND1', 'CyclinD_CDK4_6', 'CyclinE_CDK2']","(PF 477736, Prexasertib) + (Palbociclib)"
+6,PD_03-PD_04,-0.1741833346772268,-0.3609922609490863,PD_03,PD_04,"AZD-8055, Everolimus, Torin 1","Lapatinib, Neratinib","['mTOR_c2', 'mTOR_c1']","['ERBB2', 'EGFR']","(AZD-8055, Everolimus, Torin 1) + (Lapatinib, Neratinib)"
+7,PD_03-PD_08,-0.1311691284179686,-0.1143188985188802,PD_03,PD_08,"AZD-8055, Everolimus, Torin 1",Palbociclib,"['mTOR_c2', 'mTOR_c1']","['CCND1', 'CyclinD_CDK4_6', 'CyclinE_CDK2']","(AZD-8055, Everolimus, Torin 1) + (Palbociclib)"
+8,PD_03-PD_09,-0.1189630635579427,-0.0513612365722656,PD_03,PD_09,"AZD-8055, Everolimus, Torin 1",Navitoclax,"['mTOR_c2', 'mTOR_c1']","['BCL2L1', 'BCL2']","(AZD-8055, Everolimus, Torin 1) + (Navitoclax)"
+9,PD_03-PD_10,-0.1503378295898438,-0.1014760335286457,PD_03,PD_10,"AZD-8055, Everolimus, Torin 1",Obatoclax Mesylate,"['mTOR_c2', 'mTOR_c1']",['BCL2'],"(AZD-8055, Everolimus, Torin 1) + (Obatoclax Mesylate)"
+10,PD_03-PD_11,-0.2238047900788988,-0.1782892686042232,PD_03,PD_11,"AZD-8055, Everolimus, Torin 1",Ulixertinib,"['mTOR_c2', 'mTOR_c1']",['ERK_f'],"(AZD-8055, Everolimus, Torin 1) + (Ulixertinib)"

@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: SYNCO
 Version: 0.1
 Summary: SYNCO: A tool for computational and experimental synergy convergence for post-processing analysis
@@ -10,3 +10,8 @@ Requires-Dist: pandas
 Requires-Dist: scikit-learn
 Requires-Dist: matplotlib
 Requires-Dist: seaborn
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

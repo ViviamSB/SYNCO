@@ -1,0 +1,39 @@
+,drug_combination,cell_line,synergy
+0,AZD-8055 + Capivasertib,CAR1,-3.978478323
+1,AZD-8055 + Ipatasertib,CAR1,-0.738205799
+2,AZD-8055 + Lapatinib,CAR1,2.803685385
+3,AZD-8055 + Navitoclax,CAR1,8.998710048
+4,AZD-8055 + Neratinib,CAR1,2.125096633
+5,AZD-8055 + Obatoclax Mesylate,CAR1,-7.804145662
+6,AZD-8055 + Palbociclib,CAR1,2.642530679
+7,AZD-8055 + Ulixertinib,CAR1,3.763021496
+8,Capivasertib + Lapatinib,CAR1,7.888638492
+9,Capivasertib + Neratinib,CAR1,11.59057136
+10,Everolimus + Capivasertib,CAR1,-2.893554767
+11,Everolimus + Ipatasertib,CAR1,-2.605907328
+12,Everolimus + Lapatinib,CAR1,-2.283911034
+13,Everolimus + Navitoclax,CAR1,2.690811975
+14,Everolimus + Neratinib,CAR1,1.857868534
+15,Everolimus + Obatoclax Mesylate,CAR1,-0.694886799
+16,Everolimus + Palbociclib,CAR1,1.330973598
+17,Everolimus + Ulixertinib,CAR1,4.174682219
+18,Ipatasertib + Lapatinib,CAR1,5.408131487
+19,Ipatasertib + Neratinib,CAR1,11.17136861
+20,PF 477736 + MK-1775 (Advosertib),CAR1,27.13386203
+21,PF 477736 + Niraparib,CAR1,10.59992368
+22,PF 477736 + Olaparib,CAR1,5.496799367
+23,PF 477736 + PF-3644022,CAR1,15.98425753
+24,PF 477736 + Palbociclib,CAR1,-5.983096202
+25,Prexasertib + MK-1775 (Advosertib),CAR1,21.64820308
+26,Prexasertib + Niraparib,CAR1,1.490388133
+27,Prexasertib + Olaparib,CAR1,1.962425418
+28,Prexasertib + PF-3644022,CAR1,7.346491897
+29,Prexasertib + Palbociclib,CAR1,-26.292472
+30,Torin 1 + Capivasertib,CAR1,-1.001524509
+31,Torin 1 + Ipatasertib,CAR1,-1.853435221
+32,Torin 1 + Lapatinib,CAR1,-0.350787624
+33,Torin 1 + Navitoclax,CAR1,6.128915219
+34,Torin 1 + Neratinib,CAR1,1.165263478
+35,Torin 1 + Obatoclax Mesylate,CAR1,-2.436716797
+36,Torin 1 + Palbociclib,CAR1,5.249426025
+37,Torin 1 + Ulixertinib,CAR1,7.850109384

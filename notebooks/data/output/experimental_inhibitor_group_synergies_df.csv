@@ -1,0 +1,12 @@
+,inhibitor_combination,cell_line,synergy
+0,AKT_inhibitors + EGFR_inhibitors,CAR1,9.014677487250001
+1,CHK1_inhibitors + CyclinD_inhibitors,CAR1,-16.137784101
+2,CHK1_inhibitors + MK2_inhibitors,CAR1,11.6653747135
+3,CHK1_inhibitors + PARP_inhibitors,CAR1,4.8873841495
+4,CHK1_inhibitors + Wee1_inhibitors,CAR1,24.391032555
+5,mTOR_inhibitors + AKT_inhibitors,CAR1,-2.1785176578333334
+6,mTOR_inhibitors + BCL2L1_inhibitors,CAR1,5.939479080666666
+7,mTOR_inhibitors + BCL2_inhibitors,CAR1,-3.6452497526666665
+8,mTOR_inhibitors + CyclinD_inhibitors,CAR1,3.0743101006666667
+9,mTOR_inhibitors + EGFR_inhibitors,CAR1,0.8862025619999999
+10,mTOR_inhibitors + ERK_inhibitors,CAR1,5.262604366333334
