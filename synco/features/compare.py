@@ -2,6 +2,10 @@ import pandas
 from pathlib import Path
 from typing import Optional, Union, Tuple, Dict
 from ..utils import save_file
+from sklearn.metrics import (
+    roc_auc_score, average_precision_score,
+    roc_curve, precision_recall_curve, f1_score
+)
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # MAIN FEATURE: compare_synergies
@@ -41,6 +45,17 @@ def _normalize_combinations_in_df(df: pandas.DataFrame, combination_column: str 
     """
     df = df.copy()
     df[combination_column] = df[combination_column].apply(_normalize_inhibitor_combination)
+    return df
+
+#/////////////////////////////////////////////////////
+def _clean_cell_names(
+        df: pandas.DataFrame
+):
+    """
+    Clean cell names by removing '-' and uppercase strings
+    """
+    df = df.copy()
+    df['cell_line'] = df['cell_line'].str.replace('-', '').str.upper()
     return df
 
 #/////////////////////////////////////////////////////
@@ -106,12 +121,13 @@ def _match_synergies(
         else:
             raise KeyError(f"Combination '{item}' not found in columns or index.")
 
-        match_count = (df_exp == df_pred).sum()
-        mismatch_count = (df_exp != df_pred).sum()
+        # Only compare where both are not NaN
+        valid_mask = (~df_exp.isna()) & (~df_pred.isna())
+        match_count = ((df_exp == df_pred) & valid_mask).sum()
+        mismatch_count = ((df_exp != df_pred) & valid_mask).sum()
 
         match_counts[key_label] = match_count
         mismatch_counts[key_label] = mismatch_count
-        mismatch_count = (df_exp != df_pred).sum()
 
         match_counts[item] = match_count
         mismatch_counts[item] = mismatch_count
@@ -150,11 +166,13 @@ def _calculate_confusion_matrix(
             df_pred = df_prediction.loc[item, :]
         else:
             raise KeyError(f"Item '{item}' not found in columns or index of dataframes.")
-        # Calculate True Positives, True Negatives, False Positives, and False Negatives
-        tp = ((df_exp) & (df_pred)).sum()
-        tn = ((~df_exp.astype(bool)) & (~df_pred.astype(bool))).sum()
-        fp = ((~df_exp.astype(bool)) & (df_pred)).sum()
-        fn = ((df_exp) & (~df_pred.astype(bool))).sum()
+        # Only compare where both are not NaN
+        valid_mask = (~df_exp.isna()) & (~df_pred.isna())
+        # Calculate True Positives, True Negatives, False Positives, and False Negatives only for valid pairs
+        tp = ((df_exp & df_pred) & valid_mask).sum()
+        tn = ((~df_exp.astype(bool)) & (~df_pred.astype(bool)) & valid_mask).sum()
+        fp = ((~df_exp.astype(bool)) & (df_pred) & valid_mask).sum()
+        fn = ((df_exp) & (~df_pred.astype(bool)) & valid_mask).sum()
         # Store the counts in dictionaries
         true_positive[item] = tp
         true_negative[item] = tn
@@ -164,7 +182,7 @@ def _calculate_confusion_matrix(
     # Create a DataFrame to hold the results
     compared_df = pandas.DataFrame([true_positive, true_negative, false_positive, false_negative]).T
     compared_df.columns = ['True Positive', 'True Negative', 'False Positive', 'False Negative']
-    compared_df['Total'] = compared_df.sum(axis=1)    
+    compared_df['Total'] = compared_df.sum(axis=1)
 
     return compared_df
 
@@ -211,6 +229,63 @@ def _calculate_accuracy_recall_precision(
     # Add the metrics to the original DataFrame
     df_compared = pandas.concat([df_compared, metrics_df], axis=1)
     df_compared = df_compared.fillna(0)  # Fill NaN values with 0
+
+    return df_compared
+
+#/////////////////////////////////////////////////////
+def _calculate_roc_pr_f1_metrics(
+        df_compared: pandas.DataFrame,
+) -> pandas.DataFrame:
+    """
+    Calculate ROC AUC, PR AUC, and F1-score metrics from the compared DataFrame.
+
+    Args:
+        df_compared (pandas.DataFrame): DataFrame containing comparison results.
+
+    Returns:
+        pandas.DataFrame: DataFrame containing ROC AUC, PR AUC, and F1-score metrics.
+    """
+    roc_auc_list = []
+    pr_auc_list = []
+    f1_score_list = []
+
+
+    for index, row in df_compared.iterrows():
+        tp = int(row['True Positive'])
+        tn = int(row['True Negative'])
+        fp = int(row['False Positive'])
+        fn = int(row['False Negative'])
+
+        # y_true: 1 for positive class, 0 for negative class
+        y_true = [1]*tp + [1]*fn + [0]*tn + [0]*fp
+        # y_scores: 1 for predicted positive, 0 for predicted negative
+        y_scores = [1]*tp + [0]*fn + [0]*tn + [1]*fp
+
+        if len(set(y_true)) > 1 and len(y_true) == len(y_scores):
+            try:
+                roc_auc = roc_auc_score(y_true, y_scores)
+            except Exception:
+                roc_auc = 0
+            try:
+                pr_auc = average_precision_score(y_true, y_scores)
+            except Exception:
+                pr_auc = 0
+            try:
+                f1 = f1_score(y_true, y_scores)
+            except Exception:
+                f1 = 0
+        else:
+            roc_auc = 0
+            pr_auc = 0
+            f1 = 0
+
+        roc_auc_list.append(roc_auc)
+        pr_auc_list.append(pr_auc)
+        f1_score_list.append(f1)
+
+    df_compared['ROC AUC'] = roc_auc_list
+    df_compared['PR AUC'] = pr_auc_list
+    df_compared['F1 Score'] = f1_score_list
 
     return df_compared
 
@@ -316,7 +391,6 @@ def _print_comparison_summary(
         print(f"Global Recall: {global_recall:.2f}%")
         print(f"Global Precision: {global_precision:.2f}%")
 
-
 #/////////////////////////////////////////////////////
 def compare_synergies(
         df_experiment: pandas.DataFrame,
@@ -345,7 +419,11 @@ def compare_synergies(
     # Normalize inhibitor combinations to handle bidirectional combinations (e.g., A+B vs B+A)
     df_experiment = _normalize_combinations_in_df(df_experiment, 'inhibitor_combination')
     df_prediction = _normalize_combinations_in_df(df_prediction, 'inhibitor_combination')
-    
+
+    # Clean cell line names
+    df_experiment = _clean_cell_names(df_experiment)
+    df_prediction = _clean_cell_names(df_prediction)
+
     # Create boolean DataFrames for both experimental and predicted synergies
     df_experiment_bool = _make_boolean_df(df_experiment, cell_line_list, synergy_column, threshold)
     df_prediction_bool = _make_boolean_df(df_prediction, cell_line_list, synergy_column, threshold)
@@ -394,7 +472,14 @@ def compare_synergies(
     
     # Calculate accuracy, recall, and precision
     results_df = _calculate_accuracy_recall_precision(results_df)
-    
+
+
+    # Calculate ROC, PR, and F1-score
+    roc_pr_f1_results = _calculate_roc_pr_f1_metrics(confusion_matrix)
+    # Only join the new metric columns to avoid column overlap
+    metric_cols = ['ROC AUC', 'PR AUC', 'F1 Score']
+    results_df = results_df.join(roc_pr_f1_results[metric_cols])
+
     # Print final summary with global results
     _print_comparison_summary(analysis_mode, results_df=results_df)
 
