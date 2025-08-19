@@ -14,5 +14,7 @@ synco/features/compare.py
 synco/features/converge.py
 synco/features/exp_observations.py
 synco/features/loader.py
+synco/features/plot_roc_metrics.py
 synco/features/predictions.py
 synco/features/profiles.py
+synco/features/roc_metrics.py

@@ -14,5 +14,7 @@ setup(
         'scikit-learn',
         'matplotlib',
         'seaborn',
+        'plotly',
+        'numpy',
     ],
 )

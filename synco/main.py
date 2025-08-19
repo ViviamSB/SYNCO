@@ -11,7 +11,8 @@ from .features import (
     get_drugprofiles,
     get_synergy_predictions,
     converge_synergies,
-    compare_synergies
+    compare_synergies,
+    calculate_roc_metrics
 )
 
 
@@ -96,7 +97,8 @@ def _validate_stop_after(stop_after: Optional[str]) -> None:
         "drug_profiles", 
         "synergy_predictions", 
         "synergy_convergence", 
-        "synergy_comparison"
+        "synergy_comparison",
+        "roc_metrics"
     ]
     
     if stop_after not in valid_stops:
@@ -117,6 +119,7 @@ def run_pipeline(
     3. synergy predictions
     4. converge synergies
     5. compare synergies
+    6. calculate ROC metrics
 
     Args:
         config (dict): The configuration dictionary for the pipeline.
@@ -288,7 +291,7 @@ def run_pipeline(
                 predicted=conv_cfg['predicted_data'],
                 output_path=output
             )
-            _, _, exp_inhibitor_group_synergies_df = converge_experimental
+            exp_full_df, _, exp_inhibitor_group_synergies_df = converge_experimental
             converge_predictions = converge_synergies(
                 df=synergy_pred_results,
                 anchorID=conv_cfg['anchorID'],
@@ -302,7 +305,7 @@ def run_pipeline(
                 predicted=True,
                 output_path=output
             )
-            _, _, pred_inhibitor_group_synergies_df = converge_predictions
+            pred_full_df, _, pred_inhibitor_group_synergies_df = converge_predictions
             artifacts["experimental_convergence"] = converge_experimental
             artifacts["predictions_convergence"] = converge_predictions
             echo_message("\nSynergy convergence completed successfully.", verbose)
@@ -337,6 +340,35 @@ def run_pipeline(
         raise RuntimeError(f"Error in STEP 5: {e}") from e
     if stop_after == "synergy_comparison":
         echo_message("\nStopping pipeline after STEP 5: Synergy Comparison", verbose)
+        return artifacts
+
+    # ------------------------------------------------------
+    # STEP 6: ROC & PR CALCULATIONS
+    # ------------------------------------------------------
+    try:
+        if not plan:
+            echo_message("\nStarting STEP 6: ROC & PR Calculations", verbose)
+            roc_results, skipped_info = calculate_roc_metrics(
+                df_experiment=exp_full_df,
+                df_predictions=pred_full_df,
+                cell_line_list=general.get("cell_lines", []),
+                threshold=threshold,
+                verbose=verbose,
+                output_path=output
+            )
+            artifacts["roc_results"] = roc_results
+            echo_message("\nROC & PR calculations completed successfully.", verbose)
+            if skipped_info:
+                echo_message(f"Skipped cell lines during ROC & PR calculations: {skipped_info}", verbose)
+    except KeyError as e:
+        raise RuntimeError(f"Missing key in ROC & PR calculations: {e}") from e
+    except Exception as e:
+        raise RuntimeError(f"Error in STEP 6: {e}") from e
+    if stop_after == "roc_metrics":
+        echo_message("\nStopping pipeline after STEP 6: ROC & PR Calculations", verbose)
+        return artifacts
+    if stop_after is None:
         echo_message("\nPipeline completed successfully.", verbose)
-    return artifacts
+        return artifacts
+
     # ------------------------------------------------------

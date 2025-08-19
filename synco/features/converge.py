@@ -2,7 +2,7 @@ import pandas
 from pathlib import Path
 from typing import Optional, Union
 
-from ..utils import apply_mapping, save_file
+from ..utils import apply_mapping, save_file, clean_cell_names
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # MAIN FEATURE: converge_synergies
@@ -100,6 +100,7 @@ def _process_predictions(
             - inhibitor_df: DataFrame with melted format and cleaned cell line names for inhibitors.
             - drugnames_df: DataFrame with melted format and cleaned cell line names for drug combinations.
     """
+
     inhibitor_df = df.set_index(['inhibitor_combination'])
     drugnames_df = df.set_index(['drug_combination'])
     
@@ -149,6 +150,8 @@ def _process_experimental(
     Returns:
         pandas.DataFrame: Processed DataFrame with mean synergy values.
     """
+    df = clean_cell_names(df, column=cell_line)
+    
     if cell_line_list is not None:
         df = df[df[cell_line].isin(cell_line_list)]
 
@@ -211,13 +214,13 @@ def converge_synergies(
     if 'drug_combination' not in df.columns and anchor_name and library_name:
             df['drug_combination'] = df.apply(lambda row: f"{row[anchor_name]} + {row[library_name]}", axis=1)
 
+    # Map inhibitor groups and targets
     df = _map_inhibitor_groups(df, anchorID, libraryID, inhibitor_groups)
     df = _map_targets(df, anchorID, libraryID, targets_dict)
     full_df = df.copy()
 
     # Remove rows with NaN values
     df = df.dropna(subset=['Perturbation', 'inhibitor_combination', 'target_combination'])
-    # Pivot the DataFrame by drug combination and cell line
 
     # Process predicted synergies
     if predicted: 

@@ -348,3 +348,14 @@ def deep_merge(destination, source):
             destination[key] = value
     return destination
 
+#/////////////////////////////////////////////////////
+def clean_cell_names(
+        df: pandas.DataFrame,
+        column: str = 'cell_line'
+) -> pandas.DataFrame:
+    """
+    Clean cell names in a DataFrame by removing unwanted characters.
+    """
+    df = df.copy()
+    df[column] = df[column].str.upper().str.replace('-', '', regex=True)
+    return df
