@@ -320,6 +320,55 @@ def _print_comparison_summary(
         print(f"Global Precision: {global_precision:.2f}%")
 
 #/////////////////////////////////////////////////////
+def _handle_duplicates_before_pivot(
+        df: pandas.DataFrame, 
+        key_columns: list, 
+        value_column: str, 
+        strategy: str = "mean"
+) -> pandas.DataFrame:
+    """
+    Handle duplicate entries before pivot operation.
+    
+    Args:
+        df: DataFrame with potential duplicates
+        key_columns: List of columns that define unique combinations  
+        value_column: Column containing values to aggregate
+        strategy: "mean" or "ignore" (keep first)
+    
+    Returns:
+        DataFrame with duplicates resolved
+    """
+    # Check for duplicates
+    duplicates = df.duplicated(subset=key_columns).sum()
+    
+    if duplicates == 0:
+        return df
+    
+    print(f"Found {duplicates} duplicate entries for pivot operation")
+    
+    if strategy == "mean":
+        print(f"Strategy: MEAN - Averaging {value_column} values for duplicate combinations")
+        # Group by key columns and calculate mean for value column
+        result = df.groupby(key_columns, as_index=False)[value_column].mean()
+        
+        # Add back any other columns (take first occurrence)
+        other_cols = [col for col in df.columns if col not in key_columns + [value_column]]
+        if other_cols:
+            other_data = df.groupby(key_columns, as_index=False)[other_cols].first()
+            result = result.merge(other_data, on=key_columns)
+            
+    elif strategy == "ignore":
+        print(f"Strategy: IGNORE - Keeping first occurrence of duplicate combinations")
+        # Keep only the first occurrence of each duplicate
+        result = df.drop_duplicates(subset=key_columns, keep='first')
+        
+    else:
+        raise ValueError(f"Unknown duplicate strategy: {strategy}. Use 'mean' or 'ignore'")
+    
+    print(f"Original rows: {len(df)}, After handling duplicates: {len(result)}")
+    return result
+
+#/////////////////////////////////////////////////////
 def compare_synergies(
         df_experiment: pandas.DataFrame,
         df_prediction: pandas.DataFrame,
@@ -327,6 +376,7 @@ def compare_synergies(
         synergy_column: str = 'synergy',
         threshold: float = 0.5,
         analysis_mode: str = 'cell_line', # 'cell_line' or 'inhibitor_combination'
+        duplicate_strategy: str = 'mean', # 'mean' or 'ignore'
         output_path: Optional[Union[str, Path]] = None
 ) -> Tuple[pandas.DataFrame, Dict]:
     """
@@ -340,7 +390,10 @@ def compare_synergies(
         cell_line_list (list): List of cell lines to include in the comparison.
         synergy_column (str): Column name for synergy values.
         threshold (float): Threshold value for determining synergy.
-        type (str): Type of comparison ('cell_line' or 'inhibitor_combination').
+        analysis_mode (str): Type of comparison ('cell_line' or 'inhibitor_combination').
+        duplicate_strategy (str): How to handle duplicates ('mean' or 'ignore').
+        output_path (Optional[Union[str, Path]]): Path to save output files.
+        
     Returns:
         Tuple[pandas.DataFrame, Dict]: DataFrame containing the comparison results and a dictionary with skipped items info.
     """
@@ -355,6 +408,21 @@ def compare_synergies(
     # Create boolean DataFrames for both experimental and predicted synergies
     df_experiment_bool = _make_boolean_df(df_experiment, cell_line_list, synergy_column, threshold)
     df_prediction_bool = _make_boolean_df(df_prediction, cell_line_list, synergy_column, threshold)
+
+    # Handle duplicates before pivot operation
+    pivot_key_cols = ['inhibitor_combination', 'cell_line']
+    df_experiment_bool = _handle_duplicates_before_pivot(
+        df_experiment_bool, 
+        key_columns=pivot_key_cols, 
+        value_column=synergy_column,
+        strategy=duplicate_strategy
+    )
+    df_prediction_bool = _handle_duplicates_before_pivot(
+        df_prediction_bool,
+        key_columns=pivot_key_cols,
+        value_column=synergy_column, 
+        strategy=duplicate_strategy
+    )
 
     # Pivot dataframes to have cell lines as columns and combinations as index
     df_exp = df_experiment_bool.pivot(index='inhibitor_combination', columns='cell_line', values=synergy_column)

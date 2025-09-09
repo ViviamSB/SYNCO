@@ -24,7 +24,7 @@ def get_drugprofiles(
         Six mapping dictionaries
     """
     inhibitor_df = load_dataframe(folder=input_path, pattern=inhibitor + "*.csv")
-    drug_info_df = load_dataframe(folder=input_path, pattern=drug_info + ".csv")
+    drug_info_df = load_dataframe(folder=input_path, pattern=drug_info + "*.csv")
 
     # Inhibitor dictionaries
     PD_inhibitors_dict = make_dictionary(inhibitor_df, 'PD_profile', 'inhibitor_group')

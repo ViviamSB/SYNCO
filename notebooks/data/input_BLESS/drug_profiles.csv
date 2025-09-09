@@ -1,0 +1,16 @@
+drug_name,target,node_targets,PD_profile
+Navitoclax,"BCL2, BCL-XL, BCL-W, BCL2, BCL2L1, BCL2L2","['BCL2', 'BCL2L1']",PD_01
+Axitinib,"PDGFR, KIT, VEGFR, FLT1, KIT, PDGFRA, PDGFRB",['EGFR'],PD_02
+Afatinib,"EGFR, ERBB2, EGFR, ERBB2","['EGFR', 'ERBB2']",PD_03
+Nutlin-3a (-),"MDM2, MDM2",['MDM2'],PD_04
+MK-2206,"AKT1, AKT2, AKT1, AKT2",['AKT1'],PD_05
+Palbociclib,"CDK4, CDK6, CDK4, CDK6",['CyclinD_CDK4_6'],PD_06
+Pictilisib,"PI3K (class 1), PIK3CA, PIK3CB, PIK3CD, PIK3CG",['PIK3CA'],PD_07
+Trametinib,"MEK1, MEK2, MAP2K1, MAP2K2",['MEK_f'],PD_08
+Dabrafenib,"BRAF, BRAF",['BRAF'],PD_09
+Linsitinib,"IGF1R, IGF1R, INSR",['IGF1R'],PD_10
+Sapatinib,"EGFR, ERBB2, ERBB3, EGFR, ERBB2, ERBB3","['EGFR', 'ERBB2']",PD_03
+Lapatinib,"EGFR, ERBB2, EGFR, ERBB2","['EGFR', 'ERBB2']",PD_03
+Taselisib,"PI3K (beta sparing), PIK3CA, PIK3CD, PIK3CG",['PIK3CA'],PD_07
+SCH772984,"ERK1, ERK2, MAPK1, MAPK3",['ERK_f'],PD_11
+OSI-027,"MTORC1, MTORC2, MTOR","['mTOR_c1', 'mTOR_c2']",PD_12

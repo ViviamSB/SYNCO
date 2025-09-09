@@ -1,0 +1,13 @@
+PD_profile,inhibitor_group,drug_name
+PD_01,BCL2_inhibitors,['Navitoclax']
+PD_02,EGFR_inhibitors,['Axitinib']
+PD_03,RTPK_inhibitors,"['Afatinib', 'Sapatinib', 'Lapatinib']"
+PD_04,MDM2_inhibitors,['Nutlin-3a (-)']
+PD_05,AKT_inhibitors,['MK-2206']
+PD_06,CDK_inhibitors,['Palbociclib']
+PD_07,PI3K_inhibitors,"['Pictilisib', 'Taselisib']"
+PD_08,MEK_inhibitors,['Trametinib']
+PD_09,RAF_inhibitors,['Dabrafenib']
+PD_10,IGFR_inhibitors,['Linsitinib']
+PD_11,ERK_inhibitors,['SCH772984']
+PD_12,mTOR_inhibitors,['OSI-027']

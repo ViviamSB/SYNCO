@@ -330,6 +330,7 @@ def run_pipeline(
                 cell_line_list=general.get("cell_lines", []),
                 threshold=threshold,
                 analysis_mode=compare.get("analysis_mode", "inhibitor_combination"),
+                duplicate_strategy=compare.get("duplicate_strategy", "mean"),
             )
             artifacts["synergy_comparison"] = comparison_results
             artifacts["skipped_info"] = skipped_info
