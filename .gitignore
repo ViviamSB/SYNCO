@@ -1,0 +1,7 @@
+# Ignore analysis results and build artifacts
+results/
+SYNCO.egg-info/
+*.egg-info/
+__pycache__/
+data/run_analysis/
+data/sample_raw/

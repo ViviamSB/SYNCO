@@ -89,6 +89,8 @@ def plot_curves(
 
     if output:
         fig.write_html(output / f"{metric}_curve_{tissue}.html")
+        fig.write_image(output / f"{metric}_curve_{tissue}.svg", scale=2)
+        
     fig.show()
 
 

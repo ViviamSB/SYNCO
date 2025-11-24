@@ -1,0 +1,29 @@
+{
+  "paths": {
+    "base": "data/DrugLogics",
+    "pipeline_runs": "data/sample_raw/20250804/drabme_out",
+    "input": "data/synco_input/",
+    "output": "results/"
+  },
+  "general": {
+    "cell_lines": [
+      "C2BBE1",
+      "CAR1",
+      "T84"
+    ],
+    "run_date": null,
+    "verbose": true
+  },
+  "compare": {
+    "prediction_method": "DrugLogics",
+    "threshold": 0.00001,
+    "synergy_column": "synergy",
+    "analysis_mode": "cell_line",
+    "duplicate_strategy": "mean"
+  },
+  "advance": {
+    "data_loading": {
+      "synergy_filename": "labdata_nochemo_hsa.csv"
+    }
+  }
+}

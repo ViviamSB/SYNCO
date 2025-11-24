@@ -1,0 +1,12 @@
+PD_profile,inhibitor_group,drug_name,mechanism
+PD_01,AKTi,"['Ipatasertib', 'Capivasertib']",signal_transduction
+PD_02,CHK1i,"['PF 477736', 'Prexasertib']",cell_cycle
+PD_03,mTORi,"['AZD-8055', 'Everolimus', 'Torin 1']",signal_transduction
+PD_04,EGFRi,"['Lapatinib', 'Neratinib']",signal_transduction
+PD_05,PARPi,"['Niraparib', 'Olaparib']",DNA_repair
+PD_06,Wee1i,"['MK-1775 (Advosertib)', 'MK-1775']",cell_cycle
+PD_07,MK2i,['PF-3644022'],signal_transduction
+PD_08,CyclinDi,['Palbociclib'],cell_cycle
+PD_09,BCL2L1i,['Navitoclax'],apoptotic_sensitizers
+PD_10,BCL2i,['Obatoclax Mesylate'],apoptotic_sensitizers
+PD_11,ERKi,['Ulixertinib'],signal_transduction

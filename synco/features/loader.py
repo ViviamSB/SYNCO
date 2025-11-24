@@ -148,6 +148,55 @@ class DataLoader:
                     else:
                         print(f"No run folders found for cell line {cell_line}.")
         return None
+
+    def _resolve_cell_line_source(self, cell_line: str) -> str:
+        """
+        Resolve the most likely source directory for a given cell line by trying several
+        fallback locations and performing case-insensitive / normalized matching.
+
+        Returns:
+            str or None: path to the source directory if found, else None
+        """
+        # Primary expected location
+        candidate = os.path.join(self.run_results_path, cell_line)
+        if os.path.exists(candidate):
+            return candidate
+
+        # Common nested folder used by some pipelines
+        nested = os.path.join(self.run_results_path, 'drabme_out', cell_line)
+        if os.path.exists(nested):
+            return nested
+
+        # Search top-level children and drabme_out children with tolerant matching
+        def normalize(name: str) -> str:
+            return name.replace('-', '').replace('_', '').lower()
+
+        # gather candidates
+        candidates = []
+        if os.path.exists(self.run_results_path):
+            for entry in os.listdir(self.run_results_path):
+                full = os.path.join(self.run_results_path, entry)
+                if os.path.isdir(full):
+                    candidates.append(full)
+                    # also consider nested drabme_out if present
+                    if entry == 'drabme_out':
+                        for sub in os.listdir(full):
+                            subfull = os.path.join(full, sub)
+                            if os.path.isdir(subfull):
+                                candidates.append(subfull)
+
+        # Try to find a match by normalized names
+        target_norm = normalize(cell_line)
+        for c in candidates:
+            if normalize(os.path.basename(c)) == target_norm:
+                return c
+
+        # Case-insensitive exact match fallback
+        for c in candidates:
+            if os.path.basename(c).lower() == cell_line.lower():
+                return c
+
+        return None
     
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
     def _copy_pipeline_files(self, source_dir: str, destination_dir: str, cell_line: str, run_date: str = None) -> int:
@@ -216,12 +265,13 @@ class DataLoader:
         if self.pipeline == 'DrugLogics':
             # For DrugLogics, copy from the cell line directory which contains both 
             # observed_synergies and run subfolders
-            cell_line_source_path = os.path.join(self.run_results_path, cell_line)
-            if os.path.exists(cell_line_source_path):
+            # Resolve the most likely source directory for this cell line
+            cell_line_source_path = self._resolve_cell_line_source(cell_line)
+            if cell_line_source_path and os.path.exists(cell_line_source_path):
                 files_copied = self._copy_pipeline_files(
-                    cell_line_source_path, 
-                    cell_line_folder, 
-                    cell_line, 
+                    cell_line_source_path,
+                    cell_line_folder,
+                    cell_line,
                     self.run_date
                 )
             else:

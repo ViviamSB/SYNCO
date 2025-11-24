@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Optional
 from pathlib import Path
 
-from .synco_defaults import BASE_DEFAULTS
+from .config import BASE_DEFAULTS
 from .utils import deep_merge, load_dataframe, echo_message
 from .features import (
     DataLoader,
@@ -64,7 +64,14 @@ def build_pipeline_config(user_config: dict) -> dict:
     if len(general["cell_lines"]) == 0:
         raise ValueError("'cell_lines' cannot be empty - at least one cell line must be specified")
 
-    # Start with user config
+    # If the user already passed a fully-built pipeline configuration (contains 'steps'),
+    # assume it's merged and return it unchanged. This avoids overwriting previously
+    # merged `steps` when notebook code builds the config first and then calls
+    # `run_pipeline(pipeline_config, ...)` with that merged dict.
+    if isinstance(user_config, dict) and "steps" in user_config and isinstance(user_config["steps"], dict):
+        return user_config
+
+    # Start with user config and merge base defaults
     final_config = {
         "paths": user_config.get("paths", {}),
         "general": user_config.get("general", {}),
@@ -195,7 +202,29 @@ def run_pipeline(
     # ------------------------------------------------------
     try:
         # Load experimental synergy results
-        synergies_exp_processed = load_dataframe(folder=input, pattern="synergies_observed*.csv")
+        dl_cfg = steps.get('data_loading', {})
+        synergy_filename = dl_cfg.get('synergy_filename')
+        synergy_pattern = dl_cfg.get('synergy_pattern', 'synergies_observed*.csv')
+
+        # Determine where to look for the experimental synergies file(s)
+        if synergy_filename:
+            # If an absolute path was provided, load directly from its parent folder
+            sym_path = Path(synergy_filename)
+            if sym_path.is_absolute():
+                folder_to_search = sym_path.parent
+                pattern_to_use = sym_path.name
+            else:
+                # Treat as a filename or relative path under the configured input folder
+                folder_to_search = input
+                pattern_to_use = str(sym_path)
+
+            synergies_exp_processed = load_dataframe(folder=folder_to_search, pattern=pattern_to_use)
+        else:
+            # Use the configured pattern to find the file inside `input`
+            folder_to_search = input
+            pattern_to_use = synergy_pattern
+            synergies_exp_processed = load_dataframe(folder=folder_to_search, pattern=pattern_to_use)
+        echo_message(f"Loaded experimental synergies using pattern/filename: {synergy_filename or synergy_pattern}", verbose)
         
         # Load prediction results
         pipeline_results = DataLoader(
@@ -323,7 +352,7 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 5: Synergy Comparison", verbose)
-            comparison_results, skipped_info = compare_synergies(
+            comparison_results, skipped_info, comparison_summary = compare_synergies(
                 df_experiment=exp_inhibitor_group_synergies_df,
                 df_prediction=pred_inhibitor_group_synergies_df,
                 synergy_column=compare.get("synergy_column", "synergy"),
@@ -331,9 +360,12 @@ def run_pipeline(
                 threshold=threshold,
                 analysis_mode=compare.get("analysis_mode", "inhibitor_combination"),
                 duplicate_strategy=compare.get("duplicate_strategy", "mean"),
+                output_path=output,
+                debug_items=compare.get("debug_items", None),
             )
             artifacts["synergy_comparison"] = comparison_results
             artifacts["skipped_info"] = skipped_info
+            artifacts["comparison_summary"] = comparison_summary
             echo_message("\nSynergy comparison completed successfully.", verbose)
     except KeyError as e:
         raise RuntimeError(f"Missing key in synergy comparison: {e}") from e

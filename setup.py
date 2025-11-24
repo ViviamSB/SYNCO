@@ -17,4 +17,9 @@ setup(
         'plotly',
         'numpy',
     ],
+    entry_points={
+        'console_scripts': [
+            'synco = synco.cli:main',
+        ],
+    },
 )

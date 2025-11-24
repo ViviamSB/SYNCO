@@ -61,6 +61,35 @@ pip install synco
 
 ---
 
+### CLI — run from terminal
+
+You can run SYNCO either with a configuration file (JSON or YAML) or using a lightweight direct-arguments mode.
+
+- Config-file mode (recommended for reproducibility):
+```powershell
+python -m synco -c examples/synco_example_config.json --plan
+python -m synco -c examples/synco_example_config.json
+```
+
+- Direct-args mode (no config file):
+```powershell
+python -m synco --base data/DrugLogics \
+    --pipeline-runs data/sample_raw/20250804/drabme_out \
+    --input data/synco_input \
+    --output results \
+    --cell-lines C2BBE1,CAR1,T84 \
+    --prediction-method DrugLogics \
+    --plan
+```
+
+Optional override: specify the exact experimental synergies file to use with `--synergies_filename` (accepts a filename relative to the `--input` folder or an absolute path). This sets `steps.data_loading.synergy_filename` in the merged config and takes precedence over the default pattern (`synergies_observed*.csv`).
+
+Example (override):
+```powershell
+python -m synco -c examples/synco_example_config.json --synergies_filename data/synco_input/labdata_nochemo_hsa.csv --plan
+```
+
+
 ## Authors
 Developed by Viviam Solangeli Bermudez Paiva under the FLobak Lab, https://github.com/druglogics, Norwegian University of Science and Technology - NTNU.
 
