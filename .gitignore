@@ -5,3 +5,6 @@ SYNCO.egg-info/
 __pycache__/
 data/run_analysis/
 data/sample_raw/
+examples/oncologics/
+synco/features/__pycache__/
+synco/__pycache__/

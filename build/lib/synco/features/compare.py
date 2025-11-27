@@ -346,21 +346,13 @@ def _calculate_confusion_matrix(
         else:
             raise KeyError(f"Item '{item}' not found in columns or index of dataframes.")
         # Only compare where both are not NaN
-        # Reindex the prediction series to the experiment index to avoid
-        # alignment issues and FutureWarnings when doing logical ops.
-        try:
-            df_pred = df_pred.reindex(df_exp.index)
-        except Exception:
-            pass
-
-        # Only compare where both are not NaN
         valid_mask = (~df_exp.isna()) & (~df_pred.isna())
         # Calculate True Positives, True Negatives, False Positives, and False Negatives only for valid pairs
         # Use .eq(True)/.eq(False) to safely handle pandas nullable booleans (pd.NA)
-        tp = int(((df_exp.eq(True)) & (df_pred.eq(True)) & valid_mask).sum())
-        tn = int(((df_exp.eq(False)) & (df_pred.eq(False)) & valid_mask).sum())
-        fp = int(((df_exp.eq(False)) & (df_pred.eq(True)) & valid_mask).sum())
-        fn = int(((df_exp.eq(True)) & (df_pred.eq(False)) & valid_mask).sum())
+        tp = ((df_exp.eq(True)) & (df_pred.eq(True)) & valid_mask).sum()
+        tn = ((df_exp.eq(False)) & (df_pred.eq(False)) & valid_mask).sum()
+        fp = ((df_exp.eq(False)) & (df_pred.eq(True)) & valid_mask).sum()
+        fn = ((df_exp.eq(True)) & (df_pred.eq(False)) & valid_mask).sum()
         # Store the counts in dictionaries
         true_positive[item] = tp
         true_negative[item] = tn

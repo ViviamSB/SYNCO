@@ -5,7 +5,6 @@ import json
 import ast
 from typing import Union, Optional, Iterable, List, Sequence, Any
 import fnmatch
-import logging
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # FILE SYSTEM UTILITIES
@@ -206,113 +205,6 @@ def save_file(
 def echo_message(message: str, verbose: bool):
     if verbose:
         print(message)
-
-
-def save_fig(
-        fig,
-        output_dir: PathLike,
-        basename: str,
-    formats: Optional[Iterable[str]] = None,
-    scale: int = 2,
-    verbose: bool = False,
-    fig_type: Optional[str] = None,
-    ) -> dict:
-    """Save a Plotly figure in multiple formats safely.
-
-    Args:
-        fig: A Plotly figure object (plotly.graph_objects.Figure).
-        output_dir: Directory to save the files into.
-        basename: Base filename (no extension).
-        formats: Iterable of formats to save. Supported: 'png','svg','html'.
-        scale: Image scale multiplier for raster exports.
-        verbose: Print progress when True.
-
-    Returns:
-        dict mapping format -> bool (success).
-    """
-    from pathlib import Path
-
-    logger = logging.getLogger(__name__)
-    supported = {'png', 'svg', 'html'}
-    if formats is None:
-        formats = ['png', 'html']
-
-    out = {}
-    outdir = ensure_directory(output_dir)
-
-    from pathlib import Path
-
-    # Determine backend: allow explicit override via `fig_type`.
-    if fig_type is not None:
-        fig_type = fig_type.lower()
-    is_matplotlib = (fig_type == 'matplotlib') or (fig_type is None and hasattr(fig, 'savefig'))
-    is_plotly = (fig_type == 'plotly') or (fig_type is None and (hasattr(fig, 'write_image') or hasattr(fig, 'write_html')))
-
-    for fmt in formats:
-        fmt = fmt.lower()
-        if fmt not in supported:
-            out[fmt] = False
-            if verbose:
-                logger.warning("Unsupported format: %s", fmt)
-            continue
-
-        dest = Path(outdir) / f"{basename}.{fmt}"
-        try:
-            if is_plotly and not is_matplotlib:
-                # Plotly figure: use its writers
-                if fmt in ('png', 'svg'):
-                    fig.write_image(str(dest), scale=scale)
-                elif fmt == 'html':
-                    fig.write_html(str(dest))
-            elif is_matplotlib and not is_plotly:
-                # Matplotlib Figure
-                if fmt in ('png', 'svg'):
-                    dpi = 100 * int(scale)
-                    fig.savefig(str(dest), dpi=dpi, bbox_inches='tight')
-                elif fmt == 'html':
-                    # Create a PNG first and reference it from a simple HTML file
-                    png_path = Path(outdir) / f"{basename}.png"
-                    dpi = 100 * int(scale)
-                    if not png_path.exists():
-                        fig.savefig(str(png_path), dpi=dpi, bbox_inches='tight')
-                    html_content = f"<html><body><img src=\"{png_path.name}\" alt=\"{basename}\"></body></html>"
-                    with open(dest, 'w', encoding='utf8') as fh:
-                        fh.write(html_content)
-            else:
-                # Unknown figure type: try common methods
-                if fmt in ('png', 'svg'):
-                    # Try matplotlib-style
-                    if hasattr(fig, 'savefig'):
-                        dpi = 100 * int(scale)
-                        fig.savefig(str(dest), dpi=dpi, bbox_inches='tight')
-                    elif hasattr(fig, 'write_image'):
-                        fig.write_image(str(dest), scale=scale)
-                    else:
-                        raise RuntimeError('Figure object does not provide a supported save method')
-                elif fmt == 'html':
-                    if hasattr(fig, 'write_html'):
-                        fig.write_html(str(dest))
-                    else:
-                        # fall back to writing a PNG and referencing it
-                        png_path = Path(outdir) / f"{basename}.png"
-                        if hasattr(fig, 'savefig'):
-                            dpi = 100 * int(scale)
-                            fig.savefig(str(png_path), dpi=dpi, bbox_inches='tight')
-                        elif hasattr(fig, 'write_image'):
-                            fig.write_image(str(png_path), scale=scale)
-                        html_content = f"<html><body><img src=\"{png_path.name}\" alt=\"{basename}\"></body></html>"
-                        with open(dest, 'w', encoding='utf8') as fh:
-                            fh.write(html_content)
-
-            out[fmt] = True
-            if verbose:
-                logger.info("Saved %s", dest)
-        except Exception as exc:
-            out[fmt] = False
-            if verbose:
-                logger.warning("Failed to save %s: %s", dest, exc)
-
-    return out
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # DATAFRAME UTILITIES

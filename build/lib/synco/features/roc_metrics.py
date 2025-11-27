@@ -5,7 +5,6 @@ from typing import Optional, Union, Tuple, Dict, List
 from sklearn.metrics import roc_auc_score, precision_recall_curve, average_precision_score, roc_curve, f1_score
 from ..utils import save_file
 import plotly.graph_objects as go
-import re
 
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,83 +32,33 @@ def _melt_cell_lines(
 def _collect_true_scores(
         df_experiment: pandas.DataFrame, # full df or drug_names_synergies_df
         df_predictions: pandas.DataFrame, # full df or drug_names_synergies_df
-        cell_line_list: Optional[List[str]] = None
 ) -> tuple[dict, dict, list]:
     """
     Collect true scores and predicted scores for ROC calculation.
-
-    This function normalizes cell-line names for matching (strip + upper)
-    and iterates the provided `cell_line_list` when given so that missing
-    or unmatched cell lines can be reported and later included as NaN rows
-    in the final dataframe.
     """
     y_true_dict = {}
     y_score_dict = {}
     skipped_cell_lines = []
 
-    # Ensure columns exist and create normalized match column
-    df_exp = df_experiment.copy()
-    df_pred = df_predictions.copy()
-
-    if 'cell_line' not in df_exp.columns:
-        df_exp['cell_line'] = pandas.NA
-    if 'cell_line' not in df_pred.columns:
-        df_pred['cell_line'] = pandas.NA
-
-    # Normalization helper: uppercase and remove non-alphanumeric characters
-    def _normalize_name(val):
-        if val is None or pandas.isna(val):
-            return pandas.NA
-        s = str(val).strip().upper()
-        # Treat common placeholders as missing
-        if s in {'', '-', 'NA', 'N/A', 'NONE'}:
-            return pandas.NA
-        # Remove any non-alphanumeric characters (e.g., '-', '_', spaces)
-        s = re.sub(r'[^A-Z0-9]', '', s)
-        return s if s != '' else pandas.NA
-
-    df_exp['cell_line_norm'] = df_exp['cell_line'].apply(_normalize_name)
-    df_pred['cell_line_norm'] = df_pred['cell_line'].apply(_normalize_name)
-
-    # Build the list of normalized cell lines to iterate
-    if cell_line_list is not None:
-        norm_cell_lines = [_normalize_name(x) for x in cell_line_list]
-    else:
-        norm_cell_lines = list(df_exp['cell_line_norm'].unique())
-
-    for norm_cell in norm_cell_lines:
-        # Map back to original label if provided in cell_line_list, otherwise use normalized
-        original_label = None
-        if cell_line_list is not None:
-            for cl in cell_line_list:
-                if str(cl).strip().upper() == norm_cell:
-                    original_label = cl
-                    break
-        if original_label is None:
-            original_label = norm_cell
-
-        # Filter for the current normalized cell line
-        df_exp_cl = df_exp[df_exp['cell_line_norm'] == norm_cell]
-        df_pred_cl = df_pred[df_pred['cell_line_norm'] == norm_cell]
+    for cell_line in df_experiment['cell_line'].unique():
+        # Filter for the current cell line
+        df_exp = df_experiment[df_experiment['cell_line'] == cell_line]
+        df_pred = df_predictions[df_predictions['cell_line'] == cell_line]
 
         y_true_list = []
         y_score_list = []
 
-        # If there are no experimental rows for this cell line, record and continue
-        if df_exp_cl.empty:
-            skipped_cell_lines.append((original_label, 'no_experimental'))
-            continue
-
         # Loop through each perturbation in the experimental df
-        for perturbation in df_exp_cl['Perturbation'].unique():
-            exp_rows = df_exp_cl[df_exp_cl['Perturbation'] == perturbation]
+        for perturbation in df_exp['Perturbation'].unique():
+            # Get the synergy value for the current perturbation
+            exp_rows = df_exp[df_exp['Perturbation'] == perturbation]
             true_values = exp_rows['synergy'].tolist()
 
             # Prediction value (single value per perturbation)
-            pred_match = df_pred_cl[df_pred_cl['Perturbation'] == perturbation]
+            pred_match = df_pred[df_pred['Perturbation'] == perturbation]
 
             if pred_match.empty:
-                # No prediction for this perturbation -> note and skip
+                skipped_cell_lines.append(cell_line)
                 continue
             pred_value = pred_match['synergy'].values[0]
 
@@ -117,15 +66,12 @@ def _collect_true_scores(
             for true_val in true_values:
                 y_true_list.append(true_val)
                 y_score_list.append(pred_value)
-
-        # Save results for this cell line if we collected matching pairs
+        
+        # Save results for this cell line
         if y_true_list and y_score_list:
-            y_true_dict[original_label] = np.array(y_true_list)
-            y_score_dict[original_label] = np.array(y_score_list)
-        else:
-            # If we had experimental rows but no matching predictions for any perturbation
-            skipped_cell_lines.append((original_label, 'no_predictions'))
-
+            y_true_dict[cell_line] = np.array(y_true_list)
+            y_score_dict[cell_line] = np.array(y_score_list)
+        
     return y_true_dict, y_score_dict, skipped_cell_lines
 
 #/////////////////////////////////////////////////////
@@ -250,11 +196,10 @@ def _make_metrics_df(
 
 #/////////////////////////////////////////////////////
 def _collect_roc_metrics(
-    y_true_dict,
-    y_score_dict,
-    all_cell_lines: Optional[List[str]] = None,
-    threshold: float = 0.01,
-    verbose: bool = False
+        y_true_dict,
+        y_score_dict,
+        threshold: float = 0.01,
+        verbose: bool = False
 ) -> Tuple[List[go.Scatter], List[go.Scatter], List[float], List[float], pandas.DataFrame]:
     """
     Collect ROC metrics for all cell lines.
@@ -264,13 +209,7 @@ def _collect_roc_metrics(
     rocauc_score_list = []
     prauc_score_list = []
     successful_results = {}  # Only successful calculations
-    # Use provided list of all cell lines (from config) if available, otherwise
-    # fall back to the cell lines that were actually present in the experimental data
-    if all_cell_lines is None:
-        all_cell_lines = list(y_true_dict.keys())
-    else:
-        # ensure it's a list copy
-        all_cell_lines = list(all_cell_lines)
+    all_cell_lines = list(y_true_dict.keys())  # All cell lines that were attempted
 
     for cell_line, y_true in y_true_dict.items():
         y_score = y_score_dict.get(cell_line, None)
@@ -321,21 +260,15 @@ def calculate_roc_metrics(
     # Only melt the predictions DataFrame (experimental is already in correct format)
     df_pred = _melt_cell_lines(df_predictions, cell_line_list)
 
-    # Collect true scores (use full configured cell_line_list for matching)
-    y_true_dict, y_score_dict, skipped_cell_lines = _collect_true_scores(
-        df_experiment,
-        df_pred,
-        cell_line_list=cell_line_list
-    )
+    # Collect true scores
+    y_true_dict, y_score_dict, skipped_cell_lines = _collect_true_scores(df_experiment, df_pred)
 
-    # Collect roc metrics; pass the full cell_line_list so the final DataFrame
-    # contains all requested cell lines (with NaNs where calculation failed)
+    # Collect roc metrics
     roc_metrics_results = _collect_roc_metrics(
         y_true_dict,
         y_score_dict,
-        all_cell_lines=cell_line_list,
-        threshold=threshold,
-        verbose=verbose
+        threshold,
+        verbose
     )
     if verbose:
         print(f"Skipped cell lines: {skipped_cell_lines}")

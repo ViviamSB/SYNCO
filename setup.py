@@ -16,6 +16,7 @@ setup(
         'seaborn',
         'plotly',
         'numpy',
+        'kaleido',
     ],
     entry_points={
         'console_scripts': [

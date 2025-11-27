@@ -36,16 +36,6 @@ def get_drugprofiles(
     # Drug info dictionaries
     PD_targets_dict = make_dictionary(drug_info_df, 'PD_profile', 'node_targets')
 
-    # Add mechanism dictionaries if mechanism column exists
-    if 'mechanism' in inhibitor_df.columns:
-        PD_mechanism_dict = make_dictionary(inhibitor_df, 'PD_profile', 'mechanism')
-        Drugnames_mechanism_dict = make_dictionary(inhibitor_df, 'drug_name', 'mechanism', long='keys')
-        mechanism_drugnames_dict = make_dictionary(inhibitor_df, 'mechanism', 'drug_name')
-        mechanism_PD_dict = make_dictionary(inhibitor_df, 'mechanism', 'PD_profile', long='keys')
-    else:
-        #skip if no mechanism column
-        pass
-
     # Save as json if output_path
     if output_path:
         save_file(PD_inhibitors_dict, output_path / 'PD_inhibitors_dict.json', file_type='json')
@@ -54,9 +44,6 @@ def get_drugprofiles(
         save_file(inhibitorgroups_dict, output_path / 'inhibitorgroups_dict.json', file_type='json')
         save_file(Drugnames_inhibitor_dict, output_path / 'Drugnames_inhibitor_dict.json', file_type='json')
         save_file(PD_targets_dict, output_path / 'PD_targets_dict.json', file_type='json')
-
-        if 'mechanism' in inhibitor_df.columns:
-            save_file(PD_mechanism_dict, output_path / 'PD_mechanism_dict.json', file_type='json')
 
     # Collect all dictionaries
     drug_profiles_dictionaries = {
@@ -67,12 +54,5 @@ def get_drugprofiles(
         "Drugnames_inhibitor_dict": Drugnames_inhibitor_dict,
         "PD_targets_dict": PD_targets_dict
     }
-    if 'mechanism' in inhibitor_df.columns:
-        drug_profiles_dictionaries.update({
-            "PD_mechanism_dict": PD_mechanism_dict,
-            "Drugnames_mechanism_dict": Drugnames_mechanism_dict,
-            "mechanism_drugnames_dict": mechanism_drugnames_dict,
-            "mechanism_PD_dict": mechanism_PD_dict
-        })
 
     return drug_profiles_dictionaries
