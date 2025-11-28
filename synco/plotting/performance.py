@@ -21,7 +21,7 @@ from matplotlib.lines import Line2D
 
 from ..utils import save_fig
 from .load_results import (_load_main_results,)
-from .distributions import _prepare_exp_pairs
+from .pred_distributions import _prepare_exp_pairs
 
 
 def _load_results_for_performance(results_dir: str) -> dict:

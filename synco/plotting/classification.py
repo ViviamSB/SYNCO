@@ -3,9 +3,9 @@ classification plotting: load -> process -> plot
 
 This module refactors the original top-level plotting script into three
 steps consistent with other plotting helpers:
- - _load_classification_inputs(results_dir)
- - _process_classification_metrics(roc_df, comparison_df)
- - make_classification_plots(results_dir, plots_dir, show=False)
+- _load_classification_inputs(results_dir)
+- _process_classification_metrics(roc_df, comparison_df)
+- make_classification_plots(results_dir, plots_dir, show=False)
 
 The plotting code is largely preserved; it now runs inside functions and
 writes outputs to `plots_dir`.
