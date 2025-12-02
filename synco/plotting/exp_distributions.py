@@ -134,6 +134,7 @@ def _prepare_experimental_distribution(experimental_df, threshold=0):
     """ 
     Process the loaded input data for experimental distribution plotting.
     """
+
     exp_mean = experimental_df['synergy'].mean()
     exp_median = experimental_df['synergy'].median()
     exp_std = experimental_df['synergy'].std()
@@ -162,6 +163,14 @@ def _prepare_experimental_distribution(experimental_df, threshold=0):
     stacked_bar_data = stacked_bar_data[['cell_line', 'n_synergies_per_cell_line', 'percentage_synergistic']] \
         .drop_duplicates().reset_index(drop=True)
     
+    # Sort data by percentage synergistic (highest -> lowest) so bars show
+    # cell lines from most to least synergistic. The scatter uses the same
+    # categorical ordering so the y-axis aligns across plots.
+    stacked_bar_data = stacked_bar_data.sort_values(by='percentage_synergistic', ascending=True).reset_index(drop=True)
+
+    # Have same order of cell lines in scatter and stacked bar
+    cell_line_order = stacked_bar_data['cell_line'].tolist()
+    scatter_data['cell_line'] = pd.Categorical(scatter_data['cell_line'], categories=cell_line_order, ordered=True)
     
     return hist_data, scatter_data, stacked_bar_data, exp_mean, exp_median, exp_std, above_threshold_counts, total_counts, percentage_above_threshold
 
@@ -174,11 +183,61 @@ def _style_mechanism_colors(mech_combi_list):
         mechanism_combi_color[mech_combi] = base_colors[i % len(base_colors)]
     return mechanism_combi_color
 
+def _style_pairwise_colors(scatter_data, selected: tuple):
+    """Define colors for combinations that have the selected mechanism in the pair.
+    """
+    # `selected` is expected to be a sequence with up to two mechanism names
+    # to highlight: (mech1, mech2). We assign distinct colors for each.
+    if selected is None:
+        selected = ()
+
+    mech1 = None
+    mech2 = None
+    if isinstance(selected, (list, tuple)) and len(selected) > 0:
+        mech1 = selected[0]
+        if len(selected) > 1:
+            mech2 = selected[1]
+
+    # Colors: mech1, mech2, both, and neutral for others
+    color_mech1 = '#636EFA'
+    color_mech2 = '#FC7299'
+    color_both = "#C666EC"
+    neutral_color = 'lightgray'
+
+    # Collect unique mechanism combinations from the scatter data
+    mech_combis = []
+    if hasattr(scatter_data, 'loc') and 'mech_combination' in scatter_data.columns:
+        mech_combis = pd.Series(scatter_data['mech_combination'].dropna().unique()).astype(str).tolist()
+
+    mechanism_pair_color = {}
+    for comb in mech_combis:
+        # Split using the exact separator used elsewhere (' + ')
+        parts = [p.strip() for p in comb.split(' + ')]
+
+        match1 = False
+        match2 = False
+        if mech1:
+            match1 = any((mech1 == p) or (mech1 in p) for p in parts if isinstance(p, str))
+        if mech2:
+            match2 = any((mech2 == p) or (mech2 in p) for p in parts if isinstance(p, str))
+
+        if match1 and match2:
+            mechanism_pair_color[comb] = color_both
+        elif match1:
+            mechanism_pair_color[comb] = color_mech1
+        elif match2:
+            mechanism_pair_color[comb] = color_mech2
+        else:
+            mechanism_pair_color[comb] = neutral_color
+
+    return mechanism_pair_color
+    
+
 #----------------------------------------------------------------------
 # PLOT
 #----------------------------------------------------------------------
 
-def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, mechanism_combi_color, show=False):
+def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, selected_mechanism, mechanism_combi_color, show=False, height=None, width=None):
     """Plot two stacked bar plots of synergy counts by inhibitor combination and by cell line.
     """
     fig = make_subplots(
@@ -186,9 +245,14 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
         column_widths=[0.7, 0.3],
         horizontal_spacing=0.02,
         specs=[[{"type": "bar"}, {"type": "bar"}]],
-        subplot_titles=('Tested combinations:Synergistic vs Non-synergistic', 'Synergy across cell lines'),
+        subplot_titles=('Synergy frequencies by inhibitor combination', 'Cell-line synergy coverage'),
         shared_yaxes=True
     )
+
+    if selected_mechanism:
+        pairwise_color_map = _style_pairwise_colors(inhibitor_synergy_summary, selected_mechanism)
+    else:
+        pairwise_color_map = None
 
     # STAKED BAR inhibitor combination (syn vs- non-syn)
     fig.add_trace(
@@ -198,7 +262,7 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
             y=inhibitor_synergy_summary['inhibitor_combination'],
             orientation='h',
             name='Synergistic',
-            marker=dict(color=inhibitor_synergy_summary['mech_combination'].map(mechanism_combi_color)),
+            marker=dict(color=inhibitor_synergy_summary['mech_combination'].map(pairwise_color_map if pairwise_color_map else mechanism_combi_color)),
             text=inhibitor_synergy_summary['n_synergies_per_inhibitor'],
             hoverinfo='x+y+text',
         ), row=1, col=1
@@ -251,7 +315,7 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
             x=inhibitor_synergy_summary['n_synergies_across_cell_lines'],
             orientation='h',
             name='Mean synergy',
-            marker=dict(color=inhibitor_synergy_summary['mech_combination'].map(mechanism_combi_color)),
+            marker=dict(color=inhibitor_synergy_summary['mech_combination'].map(pairwise_color_map if pairwise_color_map else mechanism_combi_color)),
             text=inhibitor_synergy_summary['n_synergies_across_cell_lines'],
             hoverinfo='x+y+text',
             showlegend=False,
@@ -259,17 +323,30 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
     )
 
     # Legend of annotation for mechanism combinations, parenthesis and percentage
-    for mech_combi, color in mechanism_combi_color.items():
-        fig.add_trace(
-            go.Scatter(
-                x=[None],
-                y=[None],
-                mode='markers',
-                marker=dict(size=10, color=color),
-                name=mech_combi,
-                showlegend=True,
+    if pairwise_color_map:
+        for mech_combi, color in pairwise_color_map.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode='markers',
+                    marker=dict(size=10, color=color),
+                    name=mech_combi,
+                    showlegend=True,
+                )
             )
-        )
+    else:
+        for mech_combi, color in mechanism_combi_color.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode='markers',
+                    marker=dict(size=10, color=color),
+                    name=mech_combi,
+                    showlegend=True,
+                )
+            )
 
     fig.add_trace(
         go.Scatter(
@@ -304,8 +381,8 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
 
     fig.update_layout(barmode='stack', 
         title='Tested Combinations vs. Synergistic Combinations and Synergy Counts',
-        height=700,
-        width=1400,
+        height=height or 600,
+        width=width or 1400,
     )
     
     if show:
@@ -317,9 +394,13 @@ def _plot_histogram_experimental_distribution(
         exp_mean, exp_median, exp_std,
         threshold, above_threshold_counts, total_counts, percentage_above_threshold,
         mechanism_combi_color,
+        selected_mechanism = None,
+        height=None, width=None,
         show=False):
     """Multi plot figure for experimental synergy distribution: histogram, scatter, stacked bar.
     """
+    # Sort the date by highest synergy
+
     fig = make_subplots(
         rows=2, cols=2,
         specs=[
@@ -333,12 +414,12 @@ def _plot_histogram_experimental_distribution(
         shared_yaxes=True  # share y-axis across columns in the same row (so bottom row scatter & bar share y)
     )
 
-    # --- Row 1 Col 1: Histogram + Violin (violin overlaid, semi-transparent) ---
+    # --- Row 1 Col 1: Histogram---
     fig.add_trace(
         go.Histogram(
             x=hist_data,
             nbinsx=60,
-            marker=dict(color="#85A3E2"),
+            marker=dict(color="#737986"),
             showlegend=False,
             opacity=0.9
         ),
@@ -358,12 +439,12 @@ def _plot_histogram_experimental_distribution(
     )
 
     fig.add_trace(go.Scatter(x=[exp_mean], y=[0], mode="markers",
-                             marker=dict(color="blue", size=10),
-                             name="Mean synergy score", showlegend=True),
+                            marker=dict(color="blue", size=10),
+                            name="Mean synergy score", showlegend=True),
                     row=1, col=1)
     fig.add_trace(go.Scatter(x=[threshold], y=[0], mode="markers",
-                             marker=dict(color="red", size=10),
-                             name="Synergy threshold", showlegend=True), 
+                            marker=dict(color="black", size=10),
+                            name="Synergy threshold", showlegend=True), 
                     row=1, col=1)
 
     fig.update_yaxes(title_text='Count', row=1, col=1)
@@ -373,16 +454,23 @@ def _plot_histogram_experimental_distribution(
     fig.update_yaxes(showticklabels=False, row=1, col=2)
 
     # --- Row 2 Col 1: Scatter plot ---
+    if selected_mechanism:
+        pairwise_color_map = _style_pairwise_colors(scatter_data, selected_mechanism)
+
     fig.add_trace(
         go.Scatter(
             x=scatter_data['synergy'],
             y=scatter_data['cell_line'],
             mode='markers',
             marker=dict(
-                color=scatter_data['mech_combination'].map(mechanism_combi_color),
+                # Use pairwise highlighting map when provided, otherwise
+                # fall back to mechanism combination colors.
+                color=(scatter_data['mech_combination'].map(pairwise_color_map)
+                    if pairwise_color_map is not None else
+                    scatter_data['mech_combination'].map(mechanism_combi_color)),
                 size=8,
                 opacity=0.7),
-            text=scatter_data['drug_name_A'] + " + " + scatter_data['drug_name_B'],
+            text=scatter_data['drug_name_A'] + " + " + scatter_data['drug_name_B'] + " (" + scatter_data['mech_combination'] + ")",
             hoverinfo='text+x',
             name='Drug Combination',
             showlegend=False,
@@ -392,24 +480,36 @@ def _plot_histogram_experimental_distribution(
 
         # threshold line
     fig.add_vline(x=threshold, line_color='black',
-                  annotation_text='Synergy threshold',
-                  annotation_position='top left',
-                  row=2, col=1,)
+                annotation_text='Synergy threshold',
+                annotation_position='top left',
+                row=2, col=1,)
     
-    #add mechanism combination legend
-    for mech_combi, color in mechanism_combi_color.items():
+    #add selected mechanism combination legend
+    for mechanism, color in (pairwise_color_map.items() if selected_mechanism else mechanism_combi_color.items()):
         fig.add_trace(
             go.Scatter(
                 x=[None],
                 y=[None],
                 mode='markers',
                 marker=dict(size=10, color=color),
-                name=mech_combi,
+                name=mechanism,
                 showlegend=True,
             )
         )
+
     fig.update_xaxes(title_text='Synergy Score', row=2, col=1)
     fig.update_yaxes(title_text='Cell Line', row=2, col=1)
+
+    # Ensure both subplots (scatter and bar) use the same category order so
+    # the y-axis aligns. Build ordering from the stacked bar data which was
+    # sorted by percentage (highest -> lowest) in the preparation step.
+    try:
+        cell_line_order = stacked_bar_data['cell_line'].tolist()
+        fig.update_yaxes(categoryorder='array', categoryarray=cell_line_order, row=2, col=1)
+        fig.update_yaxes(categoryorder='array', categoryarray=cell_line_order, row=2, col=2)
+    except Exception:
+        # If anything goes wrong (missing column), fall back to default ordering
+        pass
 
     # --- Row 2 Col 2: Stacked Bar plot ---
     fig.add_trace(
@@ -418,7 +518,7 @@ def _plot_histogram_experimental_distribution(
             x=stacked_bar_data['n_synergies_per_cell_line'],
             orientation='h',
             width=0.7,
-            marker=dict(color="#6B9AFF"),
+            marker=dict(color="#737986"),
             # use numeric percentage so Plotly texttemplate can format it
             text=stacked_bar_data['percentage_synergistic'],
             hoverinfo='x+y+text',
@@ -435,8 +535,8 @@ def _plot_histogram_experimental_distribution(
     # Layout
     fig.update_layout(
         title='Experimental Synergy Distribution Analysis',
-        height=800,
-        width=1000,
+        height=height or 800,
+        width=width or 1000,
         showlegend=True,
         legend=dict(
             orientation="v",
@@ -455,7 +555,11 @@ def _plot_histogram_experimental_distribution(
 # MAIN
 #----------------------------------------------------------------------
 
-def make_experimental_distribution_plots(results_dir, plots_dir, show=False, debug=False, threshold: float=0):
+def make_experimental_distribution_plots(results_dir, plots_dir, show=False, debug=False,
+                                        threshold: float=0, selected_mechanism: tuple=None,
+                                        distribution_size: tuple=None,
+                                        stackedbar_size: tuple=None
+                                        ):
     """Make experimental distribution plots: load -> process -> plot
     """
     # LOAD
@@ -473,18 +577,26 @@ def make_experimental_distribution_plots(results_dir, plots_dir, show=False, deb
         print('Stacked bar data:', stacked_bar_data)
     
     # PLOT
+    height_sb, width_sb = stackedbar_size if stackedbar_size else (600, 1400)
     fig_synergy_counts = _plot_stackedbars_synergy_counts(
         synergy_counts,
         inhibitor_synergy_summary,
+        selected_mechanism,
         mechanism_combi_color,
         show=show,
+        height=height_sb,
+        width=width_sb,
     )
 
+    height_dist, width_dist = distribution_size if distribution_size else (800, 1000)
     fig_synergy_distributuion = _plot_histogram_experimental_distribution(
         hist_data, scatter_data, stacked_bar_data,
         exp_mean, exp_median, exp_std,
         threshold, above_threshold_counts, total_counts, percentage_above_threshold,
         mechanism_combi_color,
+        selected_mechanism,
+        height=height_dist,
+        width=width_dist,
         show=show,
     )
 

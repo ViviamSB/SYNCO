@@ -142,7 +142,7 @@ def _style_dimensions(profilecat_df, combicat_df):
     """Style the profile category dimensions for plotting.
     """
     # Color by Mechanism
-    mechanism_colors = px.colors.qualitative.Light24_r
+    mechanism_colors = px.colors.qualitative.Pastel + px.colors.qualitative.Vivid
     unique_mechanisms = profilecat_df['Mechanism'].unique()
     color_map = {mech: mechanism_colors[i % len(mechanism_colors)] for i, mech in enumerate(unique_mechanisms)}
     line_prof_colors = profilecat_df['Mechanism'].map(color_map)

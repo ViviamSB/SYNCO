@@ -280,7 +280,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         zmin=0,
         zmax=100
     ))
-    fig.update_layout(title_text="Predictive performance by inhibitor combination", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
+    fig.update_layout(title_text="Predictive performance by combination", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
     save_fig(fig, plots_path, 'heatmap_classification_metrics_combi', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
@@ -292,7 +292,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         median_value = classification_metrics_combi_scaled_df[metric].median()
         fig.add_trace(go.Box(y=classification_metrics_combi_scaled_df[metric], name=metric, marker_color=metric_colors1[metric_list1.index(metric)], boxpoints='all', boxmean=True, hoverinfo='y+text', hovertext=classification_metrics_combi_scaled_df[metric].index))
         fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
-    fig.update_layout(title_text="Summary of metrics across inhibitor combinations",
+    fig.update_layout(title_text="Summary of metrics across combinations",
         font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
     save_fig(fig, plots_path, 'box_acuracy_combination', formats=['html', 'png'], fig_type='plotly')

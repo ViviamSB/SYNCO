@@ -30,16 +30,18 @@ def _style_moa_colors(results: Optional[dict] = None) -> Dict[str, str]:
 	"""
 
 	palette = [
-		"#636EFA",  # blue
-		"#FC7299",  # pink
-		"#71C715",  # green
-		"#FF97FF",  # light magenta
-		"#16B7D3",  # cyan
-		"#BD7EF7",  # purple
-		"#F09138",  # orange
-		"#FF6F61",  # coral
-		"#0C40A0",  # dark blue
-		"#FFDE4D",  # amber
+		"#16B7D3",  
+		"#71C715",  
+		"#FC7299",  
+		"#F09138",
+		"#636EFA",
+		"#FF97FF",
+		"#BD7EF7",		
+		"#72B7B2", 
+		"#FF6F61", 
+		"#0C40A0", 
+		"#FFDE4D",
+		"#DD4477",  
 		"#757575",  # gray (Unlabeled)
 	]
 
@@ -485,9 +487,9 @@ def plot_mechanism_summary_table(
 			os.makedirs(plots_dir, exist_ok=True)
 		except Exception:
 			pass
-		# Save table as Excel when possible
+		# Save table when possible
 		try:
-			df.to_csv(os.path.join(plots_dir, 'Table1.csv'), index=False)
+			df.to_csv(os.path.join(plots_dir, 'mechanism_summary_table.csv'), index=False)
 		except Exception:
 			pass
 		# Save HTML view via helper
@@ -516,8 +518,8 @@ def make_pred_distribution_plots(
 	results_dir: str,
 	plots_dir: Optional[str] = None,
 	family_priority: Optional[List[str]] = None,
-	violin_scatter_plot_name: str = 'Figure1',
-	table_plot_name: str = 'Figure1_mechanism_summary',
+	violin_scatter_plot_name: str = 'predicted_distribution_violins',
+	table_plot_name: str = 'predicted_mechanism_summary',
 	show: bool = False,
 	violin_size: Optional[tuple] = None,
 	table_size: Optional[tuple] = None,
