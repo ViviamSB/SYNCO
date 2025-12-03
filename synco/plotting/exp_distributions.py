@@ -193,16 +193,19 @@ def _style_pairwise_colors(scatter_data, selected: tuple):
 
     mech1 = None
     mech2 = None
+    mech3 = None
     if isinstance(selected, (list, tuple)) and len(selected) > 0:
         mech1 = selected[0]
         if len(selected) > 1:
             mech2 = selected[1]
+        if len(selected) > 2:
+            mech3 = selected[2]
 
     # Colors: mech1, mech2, both, and neutral for others
     color_mech1 = '#636EFA'
     color_mech2 = '#FC7299'
-    color_both = "#C666EC"
-    neutral_color = 'lightgray'
+    color_mech3 = "#F887F8"
+    neutral_color = "#303030"
 
     # Collect unique mechanism combinations from the scatter data
     mech_combis = []
@@ -216,13 +219,15 @@ def _style_pairwise_colors(scatter_data, selected: tuple):
 
         match1 = False
         match2 = False
+        match3 = False
         if mech1:
             match1 = any((mech1 == p) or (mech1 in p) for p in parts if isinstance(p, str))
         if mech2:
             match2 = any((mech2 == p) or (mech2 in p) for p in parts if isinstance(p, str))
-
-        if match1 and match2:
-            mechanism_pair_color[comb] = color_both
+        if mech3:
+            match3 = any((mech3 == p) or (mech3 in p) for p in parts if isinstance(p, str))
+        if match3:
+            mechanism_pair_color[comb] = color_mech3
         elif match1:
             mechanism_pair_color[comb] = color_mech1
         elif match2:

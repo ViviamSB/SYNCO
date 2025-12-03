@@ -6,5 +6,7 @@ __pycache__/
 data/run_analysis/
 data/sample_raw/
 examples/oncologics/
+examples/consensus/bladder/BL_output/
+examples/consensus/colon/BL_output/
 synco/features/__pycache__/
 synco/__pycache__/

@@ -1,0 +1,21 @@
+PD_profile,inhibitor_group,drug_name,mechanism
+PD_01,ATMa,['Cisplatin'],DNA repair
+PD_02,BCL2i,['Navitoclax'],Apoptosis
+PD_03,ABL1i,['Nilotinib'],DNA repair
+PD_04,PARPi,['Olaparib'],DNA repair
+PD_05,EGFRi,['Axitinib'],RTK
+PD_06,CHEKi,['AZD7762'],DNA repair
+PD_07,ErrBi,"['Afatinib', 'Sapitinib', 'Lapatinib']",RTK
+PD_08,MDM2i,['Nutlin-3a (-)'],Apoptosis
+PD_09,FGFRi,['PD173074'],RTK
+PD_10,AKTi,['MK-2206'],AKT/MTOR
+PD_11,CDKi,['Palbociclib'],Cell cycle
+PD_12,PI3Ki,"['Pictilisib', 'Taselisib']",AKT/MTOR
+PD_13,METi,['Crizotinib'],RTK
+PD_14,WEE1i,['MK-1775'],Cell cycle
+PD_15,MEKi,['Trametinib'],MAPK
+PD_16,RAFi,['Dabrafenib'],MAPK
+PD_17,IGFRi,['Linsitinib'],RTK
+PD_18,ERKi,['SCH772984'],MAPK
+PD_19,MTORi,['OSI-027'],AKT/MTOR
+PD_20,PORCNi,['LGK974'],WNT

@@ -1,0 +1,39 @@
+{
+  "paths": {
+    "base": "examples/consensus/bladder/",
+    "pipeline_runs": "examples/consensus/bladder/BL_output",
+    "input": "examples/consensus/synco_input/",
+    "output": "examples/consensus/bladder/synco_output/"
+  },
+  "general": {
+    "cell_lines": [
+"5637",
+"639V",
+"647V",
+"BFTC905",
+"CAL29",
+"DSH1",
+"HT1376",
+"HT1197",
+"J82",
+"KU1919",
+"LB831BLC",
+"RT112",
+"RT4",
+"SW1710",
+"SW780",
+"TCCSUP",
+"UMUC3",
+"VMCUB1"],
+    "run_date": null,
+    "verbose": true
+  },
+  "compare": {
+    "prediction_method": "BooLEVARD",
+    "threshold": 0.1e-20,
+    "synergy_column": "synergy",
+    "analysis_mode": "inhibitor_combination",
+    "duplicate_strategy": "mean"
+  }
+}
+

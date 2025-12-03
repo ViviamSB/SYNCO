@@ -172,7 +172,18 @@ def _prepare_ring_data(results: dict) -> pd.DataFrame:
 		raise ValueError('`results` must be the dict returned by _load_main_results')
 
 	comp = results.get('files', {}).get('comparison')
-	if comp is None or not isinstance(comp, pd.DataFrame):
+	if comp is None:
+		raise ValueError('comparison DataFrame not found in results["files"]["comparison"]')
+	if isinstance(comp, dict):
+		found = None
+		for v in comp.values():
+			if isinstance(v, pd.DataFrame):
+				found = v
+				break
+		if found is None:
+			raise ValueError('comparison DataFrame not found in results["files"]["comparison"]')
+		comp = found
+	elif not isinstance(comp, pd.DataFrame):
 		raise ValueError('comparison DataFrame not found in results["files"]["comparison"]')
 
 	comp = comp.copy()
@@ -631,14 +642,14 @@ def plot_combination_rings(combi_df,
 
 
 def plot_cell_line_rings(cell_df: pd.DataFrame,
-                         plots_dir: Optional[str] = None,
-                         plot_name: Optional[str] = 'rings_cell_lines',
-                	ncols: int = 7,
-                         figsize: Tuple[int, int] = (16, 16),
-                 	 show: bool = False,
-                 	 center_metric: str = 'recall',
-                 	 center_fontsize: int = 14,
-                 	 show_legend: bool = False) -> plt.Figure:
+				plots_dir: Optional[str] = None,
+				plot_name: Optional[str] = 'rings_cell_lines',
+				ncols: int = 7,
+				figsize: Tuple[int, int] = (16, 16),
+				show: bool = False,
+				center_metric: str = 'recall',
+				center_fontsize: int = 14,
+				show_legend: bool = False) -> plt.Figure:
 	"""Plot grid of ring plots for cell lines using a comparison DataFrame.
 
 	This mirrors the notebook's cell-line ring plotting layout. See
@@ -646,16 +657,17 @@ def plot_cell_line_rings(cell_df: pd.DataFrame,
 	"""
 	# Reuse the combination plotting function but with different defaults
 	return plot_combination_rings(cell_df, plots_dir=plots_dir, plot_name=plot_name,
-			 ncols=ncols, figsize=figsize, show=show,
-			 center_metric=center_metric, center_fontsize=center_fontsize,
-			 show_legend=show_legend)
+			ncols=ncols, figsize=figsize, show=show,
+			center_metric=center_metric, center_fontsize=center_fontsize,
+			show_legend=show_legend)
 
 
 def make_performance_plots(
 	results_dir: str,
 	plots_dir: Optional[str] = None,
-	funnel_plot_name: str = 'Figure3A',
-	rings_plot_name: str = 'Figure3B',
+	performance: str = 'ring', # or 'funnel' or 'both'
+	funnel_plot_name: str = 'global_efficiency',
+	rings_plot_name: str = 'global_performance',
 	show: bool = False,
 	funnel_size: Optional[tuple] = None,
 	center_metric: str = 'recall',
@@ -672,19 +684,23 @@ def make_performance_plots(
 		plots_dir = os.path.join(results.get('results_dir', results_dir), 'plots')
 	os.makedirs(plots_dir, exist_ok=True)
 
+	if performance.lower() not in {'funnel', 'ring', 'both'}:
+		raise ValueError(f'Unknown performance plot type: {performance}')
+	if performance.lower() in {'funnel'}:
 	# Funnel
-	fw, fh = (funnel_size or (1200, 500))
-	try:
-		plot_funnel(results=results, plot_dir=plots_dir, plot_name=funnel_plot_name, width=fw, height=fh, show=show)
-	except Exception:
-		logging.getLogger(__name__).exception('Failed to render funnel plot')
+		fw, fh = (funnel_size or (1200, 500))
+		try:
+			plot_funnel(results=results, plot_dir=plots_dir, plot_name=funnel_plot_name, width=fw, height=fh, show=show)
+		except Exception:
+			logging.getLogger(__name__).exception('Failed to render funnel plot')
 
+	if performance.lower() in {'ring'}:
 	# Ring summary (aggregate)
-	try:
-		plot_ring_summary(results, plots_dir=plots_dir, plot_name=rings_plot_name, show=show,
-					 center_metric=center_metric, center_fontsize=center_fontsize)
-	except Exception:
-		logging.getLogger(__name__).exception('Failed to render ring summary')
+		try:
+			plot_ring_summary(results, plots_dir=plots_dir, plot_name=rings_plot_name, show=show,
+						center_metric=center_metric, center_fontsize=center_fontsize)
+		except Exception:
+			logging.getLogger(__name__).exception('Failed to render ring summary')
 
 def make_ring_plots(
 	results_dir: str,
