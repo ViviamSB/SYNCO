@@ -702,7 +702,17 @@ def compare_synergies(
     
     if len(common_items) == 0:
         print("WARNING: No common items found between datasets!")
-        return pandas.DataFrame(), skipped_info
+        # Return an empty results DataFrame but keep diagnostics so callers can log/report
+        empty_summary = {
+            'items_in_experimental': len(exp_items),
+            'items_in_predicted': len(pred_items),
+            'common_items': 0,
+            'skipped_from_experimental': len(skipped_exp),
+            'skipped_from_predicted': len(skipped_pred),
+            'warning': 'No common items found between datasets'
+        }
+        skipped_info['global_summary'] = empty_summary
+        return pandas.DataFrame(), skipped_info, empty_summary
     
     # Use only common items for comparison
     combi = list(common_items)

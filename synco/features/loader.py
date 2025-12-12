@@ -13,7 +13,129 @@ except ImportError:
     # Add parent directory to path for notebook/standalone usage
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import ensure_directory, copy_files, load_dataframe
+
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+# UTILITY FUNCTION: resolve_cell_lines
+#///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+def resolve_cell_lines(
+    cell_line_input,
+    pipeline_runs_path: str = None,
+    input_path: str = None,
+    verbose: bool = False
+) -> list:
+    """
+    Resolve cell line names from multiple input types.
     
+    This function supports three input modes:
+    1. Manual list: If cell_line_input is a non-empty list, return it as-is
+    2. Automatic inference: If cell_line_input is empty list or None, infer from pipeline_runs_path
+    3. CSV file: If cell_line_input is a string (filename/path), load from CSV file
+    
+    Args:
+        cell_line_input: Can be:
+            - list: Manual cell line names (returned as-is if non-empty)
+            - str: Path/filename to CSV file with cell line names
+            - None or []: Auto-discover from pipeline_runs_path
+        pipeline_runs_path: Path to pipeline results directory for auto-discovery
+        input_path: Path to input directory for CSV file lookup
+        verbose: If True, print detailed information
+    
+    Returns:
+        list: List of cell line names
+        
+    Raises:
+        ValueError: If cell lines cannot be resolved from any source
+    """
+    # Case 1: Manual list provided (non-empty)
+    if isinstance(cell_line_input, list) and len(cell_line_input) > 0:
+        if verbose:
+            print(f"Using manually specified cell lines: {cell_line_input}")
+        return cell_line_input
+    
+    # Case 2: String provided - treat as CSV filename/path
+    if isinstance(cell_line_input, str):
+        # Determine the full path to the CSV file
+        csv_path = Path(cell_line_input)
+        
+        # If not absolute, look in input_path
+        if not csv_path.is_absolute() and input_path:
+            csv_path = Path(input_path) / cell_line_input
+        
+        if not csv_path.exists():
+            raise ValueError(
+                f"Cell line CSV file not found: {csv_path}. "
+                f"Please provide a valid path or place the file in the input directory."
+            )
+        
+        try:
+            # Load CSV and extract cell line names
+            df = pandas.read_csv(csv_path)
+            
+            # Look for common column names for cell line identifiers
+            possible_columns = ['cell_line_name', 'cell_line', 'cellline', 'name', 'Cell_Line', 'CellLine']
+            cell_line_column = None
+            
+            for col in possible_columns:
+                if col in df.columns:
+                    cell_line_column = col
+                    break
+            
+            if cell_line_column is None:
+                # Use the first column if no standard column name found
+                cell_line_column = df.columns[0]
+                if verbose:
+                    print(f"No standard cell line column found. Using first column: {cell_line_column}")
+            
+            cell_lines = df[cell_line_column].dropna().astype(str).tolist()
+            
+            if len(cell_lines) == 0:
+                raise ValueError(f"No cell lines found in CSV file: {csv_path}")
+            
+            if verbose:
+                print(f"Loaded {len(cell_lines)} cell lines from CSV: {csv_path}")
+                print(f"Cell lines: {cell_lines}")
+            
+            return cell_lines
+            
+        except Exception as e:
+            raise ValueError(f"Error reading cell line CSV file {csv_path}: {e}") from e
+    
+    # Case 3: Empty list or None - auto-discover from pipeline_runs_path
+    if pipeline_runs_path and os.path.exists(pipeline_runs_path):
+        cell_lines = []
+        
+        # Get all directories in pipeline_runs_path
+        for entry in os.listdir(pipeline_runs_path):
+            entry_path = os.path.join(pipeline_runs_path, entry)
+            if os.path.isdir(entry_path):
+                # Skip common non-cell-line directories
+                if entry.lower() not in ['drabme_out', 'results', 'analysis', 'logs', 'config']:
+                    cell_lines.append(entry)
+        
+        # Also check for drabme_out subfolder (common in DrugLogics pipelines)
+        drabme_path = os.path.join(pipeline_runs_path, 'drabme_out')
+        if os.path.exists(drabme_path):
+            for entry in os.listdir(drabme_path):
+                entry_path = os.path.join(drabme_path, entry)
+                if os.path.isdir(entry_path) and entry not in cell_lines:
+                    cell_lines.append(entry)
+        
+        if len(cell_lines) > 0:
+            if verbose:
+                print(f"Auto-discovered {len(cell_lines)} cell lines from: {pipeline_runs_path}")
+                print(f"Cell lines: {cell_lines}")
+            return cell_lines
+    
+    # If we get here, we couldn't resolve cell lines
+    raise ValueError(
+        "Could not resolve cell lines. Please provide one of:\n"
+        "  1. A manual list in config['general']['cell_lines']\n"
+        "  2. A CSV filename/path in config['general']['cell_lines']\n"
+        "  3. Valid pipeline_runs path for auto-discovery\n"
+        f"Current input: {cell_line_input}, pipeline_runs_path: {pipeline_runs_path}"
+    )
+
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
 # CLASS: InsilicoDataLoader
 # MAIN METHODS: make_analysis_folders() fetch_synergy_data()
@@ -40,7 +162,7 @@ class DataLoader:
                 run_results_path: str = None, # Path to the pipeline results folder. Contains sub-folders for each cell line.
                 prediction_method: str = 'DrugLogics', # Name of the pipeline. DrugLogics or BooLEVARD.
                 experimental_observations: bool = False, # If True, load experimental observations.
-                cell_line_list: list = None, # List of cell lines.
+                cell_line_list = None, # List of cell lines, CSV filename, or None for auto-discovery.
                 run_date: str = None, # Specific date run folder.
                 analysis_folder: str = None, # Name of the analysis folder to create.
                 verbose: bool = False, # Verbose mode.
@@ -52,7 +174,13 @@ class DataLoader:
         self.run_results_path = run_results_path
         self.pipeline = prediction_method
         self.experimental_observations = experimental_observations
-        self.cell_lines = cell_line_list if cell_line_list else self._discover_cell_lines()
+        # Use new resolve_cell_lines function to handle all input types
+        self.cell_lines = resolve_cell_lines(
+            cell_line_input=cell_line_list,
+            pipeline_runs_path=run_results_path,
+            input_path=cell_info_path,
+            verbose=verbose
+        )
         self.run_date = run_date
         
 

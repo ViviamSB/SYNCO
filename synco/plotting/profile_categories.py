@@ -95,6 +95,7 @@ def _prepare_inputs(drugpanel_input):
             # Map mechanism to PD ids and add mechanism combination
     combicat_df['Mechanism_A'] = combicat_df['PD_A'].map(_map_mechanism)
     combicat_df['Mechanism_B'] = combicat_df['PD_B'].map(_map_mechanism)
+    combicat_df['PD_combination'] = combicat_df['PD_A'] + ' + ' + combicat_df['PD_B']
     combicat_df['mech_combination'] = combicat_df['Mechanism_A'] + ' + ' + combicat_df['Mechanism_B']
 
     return profilecat_df, combicat_df
@@ -129,12 +130,16 @@ def _prepare_dimensions(profilecat_df, combicat_df):
         values=combicat_df['mech_combination'],
         label='Mechanism Combination',
     )
+    PD_dim = go.parcats.Dimension(
+        values=combicat_df['PD_combination'],
+        label='PD Combination',
+    )
     inhibitorcombi_dim = go.parcats.Dimension(
         values=combicat_df['inhibitor_combination'],
         label='Inhibitor Combination',
     )
 
-    combi_dimensions = [drugcombi_dim, inhibitorcombi_dim, mechanismcombi_dim]
+    combi_dimensions = [drugcombi_dim, inhibitorcombi_dim, PD_dim, mechanismcombi_dim]
 
     return prof_dimensions, combi_dimensions
 

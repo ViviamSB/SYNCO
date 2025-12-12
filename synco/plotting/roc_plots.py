@@ -1,15 +1,88 @@
+"""
+ROC/PR plotting: load -> process -> plot
+
+This module provides functions to load ROC/PR curve data from saved results
+and generate ROC and PR curve plots. The plotting script follows three steps:
+- _load_roc_inputs(results_dir)
+- _prepare_roc_data(roc_traces_data) [optional processing]
+- make_roc_plots(results_dir, plots_dir, show=False)
+"""
+
+import logging
+from pathlib import Path
+from typing import Optional, Tuple, Dict, Any
+
 import numpy as np
-import pandas as pandas
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-#//////////////////////////////////////////////////////////////////////////////
+from .load_results import _load_main_results
+
+#//////////////////////////////////////////////////////////////////////
+#----------------------------------------------------------------------
+# LOAD
+#----------------------------------------------------------------------
+
+def _load_roc_inputs(results_dir: str) -> Dict[str, Any]:
+    """
+    Load ROC/PR curve data from a results directory.
+    
+    Args:
+        results_dir: Path to the directory containing pipeline results
+        
+    Returns:
+        Dictionary containing:
+        - 'traces_roc': List of (auc, go.Scatter) tuples for ROC curves
+        - 'traces_pr': List of (auc, go.Scatter) tuples for PR curves  
+        - 'rocauc_scores': List of ROC AUC scores
+        - 'prauc_scores': List of PR AUC scores
+        - 'results_dir': Path to results directory
+    """
+    results = _load_main_results(results_dir)
+    roc_data = results.get('roc_traces')
+    
+    if roc_data is None:
+        logging.warning(f"No ROC/PR curve data found in {results_dir}. "
+                       "Ensure the pipeline was run with output_path specified.")
+        return {
+            'traces_roc': [],
+            'traces_pr': [],
+            'rocauc_scores': [],
+            'prauc_scores': [],
+            'results_dir': str(results_dir)
+        }
+    
+    return {
+        'traces_roc': roc_data.get('traces_roc', []),
+        'traces_pr': roc_data.get('traces_pr', []),
+        'rocauc_scores': roc_data.get('rocauc_scores', []),
+        'prauc_scores': roc_data.get('prauc_scores', []),
+        'results_dir': str(results_dir)
+    }
+
+#----------------------------------------------------------------------
+# PREPARE (optional - data is already in the right format)
+#----------------------------------------------------------------------
+
+def _prepare_roc_data(roc_inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Prepare ROC/PR data for plotting (currently just passes through).
+    
+    Args:
+        roc_inputs: Dictionary from _load_roc_inputs
+        
+    Returns:
+        Same dictionary (data is already in plotting format)
+    """
+    return roc_inputs
+
+#----------------------------------------------------------------------
+# PLOT
+#----------------------------------------------------------------------
 
 def plot_curves(
         traces, 
         auc_score_list, 
-        model,
-        specific_date, 
         tissue,
         metric='ROC', 
         width=800, 
@@ -43,22 +116,6 @@ def plot_curves(
         showarrow=False,
         font=dict(size=14)
     )
-
-    # Add model type and run date annotation
-    if specific_date is None:
-        fig.add_annotation(
-            x=0.5, y=1.08,
-            text=f'Model: {model} | Last run date',
-            showarrow=False,
-            font=dict(size=14)
-        )
-    else:
-        fig.add_annotation(
-            x=0.5, y=1.08,
-            text=f'Model: {model} | Run Date: {specific_date}',
-            showarrow=False,
-            font=dict(size=14)
-        )
 
     if metric == 'ROC':
         fig.add_shape(
@@ -371,3 +428,77 @@ def plot_multi_dots(
     )
 
     fig.show()
+
+#----------------------------------------------------------------------
+# WRAPPER
+#----------------------------------------------------------------------
+
+def make_roc_plots(
+        results_dir: str,
+        plots_dir: Optional[str] = None,
+        show: bool = False,
+        tissue: str = "all",
+        width: int = 800,
+        height: int = 800
+) -> Tuple[Optional[go.Figure], Optional[go.Figure]]:
+    """
+    High-level entrypoint: load -> prepare -> plot ROC and PR curves.
+    
+    Args:
+        results_dir: Path to directory containing pipeline results (with roc_pr_curves.json)
+        plots_dir: Directory to save plot files (if None, uses results_dir/plots)
+        show: Whether to display interactive figures
+        model: Model name for plot annotation
+        specific_date: Run date for plot annotation (if None, shows "Last run date")
+        tissue: Tissue name for plot title
+        width: Plot width in pixels
+        height: Plot height in pixels
+        
+    Returns:
+        Tuple of (roc_fig, pr_fig) or (None, None) if no data available
+    """
+    # Load ROC/PR curve data
+    roc_inputs = _load_roc_inputs(results_dir)
+    
+    # Check if we have data
+    if not roc_inputs['traces_roc'] or not roc_inputs['traces_pr']:
+        logging.warning("No ROC/PR curve data available to plot. "
+                       "Ensure the pipeline was run with output_path specified.")
+        return None, None
+    
+    # Prepare data (optional step, currently a pass-through)
+    roc_data = _prepare_roc_data(roc_inputs)
+    
+    # Set up output directory
+    if plots_dir is None:
+        plots_dir = Path(results_dir) / 'plots'
+    plots_dir = Path(plots_dir)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Plot ROC curves
+    logging.info("Generating ROC curve plot...")
+    plot_curves(
+        traces=roc_data['traces_roc'],
+        auc_score_list=roc_data['rocauc_scores'],
+        tissue=tissue,
+        metric='ROC',
+        width=width,
+        height=height,
+        output=plots_dir if show else plots_dir
+    )
+    
+    # Plot PR curves
+    logging.info("Generating PR curve plot...")
+    plot_curves(
+        traces=roc_data['traces_pr'],
+        auc_score_list=roc_data['prauc_scores'],
+        tissue=tissue,
+        metric='PR',
+        width=width,
+        height=height,
+        output=plots_dir if show else plots_dir
+    )
+    
+    logging.info(f"ROC/PR curve plots saved to: {plots_dir}")
+    
+    return None  # Figures are shown/saved by plot_curves

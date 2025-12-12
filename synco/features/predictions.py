@@ -72,8 +72,8 @@ def _merge_synergies(
                         on='Perturbation',
                         how='outer'
                     )
-        else:
-            print(f"Warning: No experimental observations for cell line {cell_line}.")
+        # else:
+            # Silently skip cell lines with no experimental observations
     
     return synergy_predictions_df, synergy_observations_df
 

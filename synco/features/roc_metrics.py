@@ -6,6 +6,7 @@ from sklearn.metrics import roc_auc_score, precision_recall_curve, average_preci
 from ..utils import save_file
 import plotly.graph_objects as go
 import re
+import json
 
 
 #///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,9 +206,7 @@ def _calculate_roc_metrics(
         return roc_results, roc_trace, pr_trace
         
     except ValueError as e:
-        print(f"Error calculating metrics for {cell_line}: {e}")
-        print(f"  y_true_binary unique: {np.unique(y_true_binary)}")
-        print(f"  y_score range: [{y_score.min():.3f}, {y_score.max():.3f}]")
+        # Silently handle ROC calculation errors (e.g., NaN values, insufficient data)
         return None, None, None
 
     return None, None, None
@@ -255,7 +254,7 @@ def _collect_roc_metrics(
     all_cell_lines: Optional[List[str]] = None,
     threshold: float = 0.01,
     verbose: bool = False
-) -> Tuple[List[go.Scatter], List[go.Scatter], List[float], List[float], pandas.DataFrame]:
+) -> Tuple[List[go.Scatter], List[go.Scatter], List[float], List[float], pandas.DataFrame, Dict]:
     """
     Collect ROC metrics for all cell lines.
     """
@@ -304,7 +303,62 @@ def _collect_roc_metrics(
     # Create metrics DataFrame including failed calculations with NaN
     metrics_df = _make_metrics_df(all_cell_lines, successful_results)
 
-    return traces_roc, traces_pr, rocauc_score_list, prauc_score_list, metrics_df
+    return traces_roc, traces_pr, rocauc_score_list, prauc_score_list, metrics_df, successful_results
+
+#/////////////////////////////////////////////////////
+def _save_curves_json(
+        roc_metrics_results: Tuple,
+        output_path: Path,
+        verbose: bool = False
+) -> None:
+    """
+    Save ROC/PR curve data as JSON for later plotting.
+    
+    Args:
+        roc_metrics_results: Tuple containing (traces_roc, traces_pr, rocauc_scores, prauc_scores, metrics_df, successful_results)
+        output_path: Directory path to save the JSON file
+        verbose: Whether to print save confirmation
+    """
+    traces_roc, traces_pr, rocauc_scores, prauc_scores, metrics_df, successful_results = roc_metrics_results
+    
+    # Build JSON structure with all curve data
+    curves_data = {
+        'roc_curves': [],
+        'pr_curves': [],
+        'rocauc_scores': rocauc_scores,
+        'prauc_scores': prauc_scores
+    }
+    
+    # Extract ROC curve data from successful_results (which has fpr, tpr, etc.)
+    for cell_line, result in successful_results.items():
+        roc_curve_data = {
+            'cell_line': cell_line,
+            'auc': float(result['roc_auc']),
+            'fpr': result['fpr'],  # already converted to list
+            'tpr': result['tpr'],  # already converted to list
+        }
+        curves_data['roc_curves'].append(roc_curve_data)
+    
+    # Extract PR curve data from traces (since successful_results doesn't have precision/recall)
+    for auc, trace in traces_pr:
+        pr_curve_data = {
+            'cell_line': trace.name.split(' (')[0],  # Extract cell line name from trace name
+            'auc': float(auc),
+            'recall': trace.x.tolist() if hasattr(trace.x, 'tolist') else list(trace.x),
+            'precision': trace.y.tolist() if hasattr(trace.y, 'tolist') else list(trace.y),
+        }
+        curves_data['pr_curves'].append(pr_curve_data)
+    
+    # Save to JSON
+    json_path = output_path / 'roc_pr_curves.json'
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(curves_data, f, indent=2)
+    
+    if verbose:
+        print(f"ROC/PR curves saved to {json_path}")
+
+#/////////////////////////////////////////////////////
+# Removed JSON loader; curve loading now lives in plotting.load_results
 
 #/////////////////////////////////////////////////////
 def calculate_roc_metrics(
@@ -339,8 +393,13 @@ def calculate_roc_metrics(
     )
     if verbose:
         print(f"Skipped cell lines: {skipped_cell_lines}")
+    
     # Save files if output path is specified
     if output_path is not None:
+        # Save metrics DataFrame as CSV
         save_file(roc_metrics_results[4], output_path / 'roc_metrics_df.csv', file_type='csv')
-
-    return roc_metrics_results, skipped_cell_lines
+        # Save ROC/PR curves as JSON for later plotting
+        _save_curves_json(roc_metrics_results, output_path, verbose=verbose)
+    
+    # Return only the first 5 elements (without successful_results dict) for backward compatibility
+    return roc_metrics_results[:5], skipped_cell_lines

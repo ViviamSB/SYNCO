@@ -301,9 +301,8 @@ def _draw_ring(ax, row, title: str = '',
 	ax.pie(outer_sizes, radius=outer_radius, colors=outer_colors, startangle=90,
 		   wedgeprops=dict(width=outer_width, edgecolor='white'))
 
-	# inner ring with labels only for non-zero slices
-	labels = ['TP', 'TN', 'FP', 'FN']
-	disp_labels = [lbl if val > 0 else '' for lbl, val in zip(labels, inner_values)]
+	# inner ring with actual values displayed for non-zero slices
+	disp_labels = [str(val) if val > 0 else '' for val in inner_values]
 	ax.pie(inner_values, radius=inner_radius, colors=inner_colors, startangle=90,
 		   labels=disp_labels, labeldistance=0.7, textprops={'color': 'w', 'fontsize': 12},
 		   wedgeprops=dict(width=inner_width, edgecolor='white'))

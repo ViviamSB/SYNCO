@@ -140,9 +140,47 @@ def _load_main_results(results_dir: str) -> dict:
 		loaded = _read_json_if_exists(fname)
 		loaded_dicts[key] = loaded
 
+	# Load ROC/PR curves if available (direct JSON parsing; no cross-module dependency)
+	roc_traces_data = None
+	roc_curves_path = results_dir / "roc_pr_curves.json"
+	if roc_curves_path.exists():
+		try:
+			with open(roc_curves_path, 'r', encoding='utf-8') as fh:
+				curves_data = json.load(fh)
+			# Reconstruct ROC traces
+			traces_roc = []
+			for curve in curves_data.get('roc_curves', []):
+				trace = go.Scatter(
+					x=curve.get('fpr', []),
+					y=curve.get('tpr', []),
+					name=f"{curve.get('cell_line', '')} (AUC={float(curve.get('auc', 0.0)):.3f})",
+					mode='lines'
+				)
+				traces_roc.append((float(curve.get('auc', 0.0)), trace))
+			# Reconstruct PR traces
+			traces_pr = []
+			for curve in curves_data.get('pr_curves', []):
+				trace = go.Scatter(
+					x=curve.get('recall', []),
+					y=curve.get('precision', []),
+					name=f"{curve.get('cell_line', '')} (PR AUC={float(curve.get('auc', 0.0)):.3f})",
+					mode='lines'
+				)
+				traces_pr.append((float(curve.get('auc', 0.0)), trace))
+
+			roc_traces_data = {
+				'traces_roc': traces_roc,
+				'traces_pr': traces_pr,
+				'rocauc_scores': curves_data.get('rocauc_scores', []),
+				'prauc_scores': curves_data.get('prauc_scores', []),
+			}
+		except Exception as e:
+			logging.warning(f"Failed to load ROC/PR curves from {roc_curves_path}: {e}")
+
 	results = {
 		'files': summ_results_files,
 		'dicts': loaded_dicts,
+		'roc_traces': roc_traces_data,
 		'results_dir': str(results_dir)
 	}
 

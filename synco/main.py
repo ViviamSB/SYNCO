@@ -8,6 +8,7 @@ from .config import BASE_DEFAULTS
 from .utils import deep_merge, load_dataframe, echo_message
 from .features import (
     DataLoader,
+    resolve_cell_lines,
     get_drugprofiles,
     get_synergy_predictions,
     converge_synergies,
@@ -58,11 +59,11 @@ def build_pipeline_config(user_config: dict) -> dict:
     if "cell_lines" not in general:
         raise ValueError("Configuration must include 'cell_lines' in general section")
     
-    if not isinstance(general["cell_lines"], list):
-        raise ValueError("'cell_lines' must be a list")
-        
-    if len(general["cell_lines"]) == 0:
-        raise ValueError("'cell_lines' cannot be empty - at least one cell line must be specified")
+    # cell_lines can be: list (manual or empty for auto), string (CSV file), or None
+    cell_lines_input = general["cell_lines"]
+    if cell_lines_input is not None:
+        if not isinstance(cell_lines_input, (list, str)):
+            raise ValueError("'cell_lines' must be a list, string (CSV filename), or None")
 
     # If the user already passed a fully-built pipeline configuration (contains 'steps'),
     # assume it's merged and return it unchanged. This avoids overwriting previously
@@ -165,6 +166,16 @@ def run_pipeline(
     
     runs = Path(paths["pipeline_runs"]).expanduser()
 
+    # Resolve cell lines (manual list, CSV file, or auto-discover)
+    cell_lines = resolve_cell_lines(
+        cell_line_input=general.get("cell_lines"),
+        pipeline_runs_path=str(runs),
+        input_path=str(input),
+        verbose=verbose
+    )
+    if verbose:
+        echo_message(f"Resolved {len(cell_lines)} cell lines: {cell_lines}", verbose)
+
     # Ensure directories exist
     directories_to_create = [input, runs]
     if output is not None:
@@ -184,7 +195,7 @@ def run_pipeline(
         print(f" - Synergy prediction Runs: {runs}\n")
         print(f"Pipeline will execute until step: {stop_after}" if stop_after else "Pipeline will execute all steps.")
         print("\nConfig variables:\n")
-        print(f"Cell lines: {general.get('cell_lines', [])}")
+        print(f"Cell lines: {cell_lines}")
         print(f"Synergy threshold: {threshold}")
         print(f"Prediction method: {compare.get('prediction_method', 'DrugLogics')}")
         print(f"Analysis mode: {compare.get('analysis_mode', 'default')}")
@@ -230,7 +241,7 @@ def run_pipeline(
         pipeline_results = DataLoader(
             base_path=base,
             cell_info_path=input,
-            cell_line_list=general.get("cell_lines", []),
+            cell_line_list=cell_lines,
             prediction_method=compare.get("prediction_method", "DrugLogics"),
             experimental_observations=steps['data_loading'].get("experimental_observations", False),
             run_results_path=runs,
@@ -316,7 +327,7 @@ def run_pipeline(
                 inhibitor_groups=drug_profiles['PD_inhibitors_dict'],
                 targets_dict=drug_profiles['PD_targets_dict'],
                 cell_line=conv_cfg['cell_line_column'],
-                cell_line_list=general.get("cell_lines", []),
+                cell_line_list=cell_lines,
                 predicted=conv_cfg['predicted_data'],
                 output_path=output
             )
@@ -330,7 +341,7 @@ def run_pipeline(
                 inhibitor_groups=drug_profiles['PD_inhibitors_dict'],
                 targets_dict=drug_profiles['PD_targets_dict'],
                 cell_line=conv_cfg['cell_line_column'],
-                cell_line_list=general.get("cell_lines", []),
+                cell_line_list=cell_lines,
                 predicted=True,
                 output_path=output
             )
@@ -356,7 +367,7 @@ def run_pipeline(
                 df_experiment=exp_inhibitor_group_synergies_df,
                 df_prediction=pred_inhibitor_group_synergies_df,
                 synergy_column=compare.get("synergy_column", "synergy"),
-                cell_line_list=general.get("cell_lines", []),
+                cell_line_list=cell_lines,
                 threshold=threshold,
                 analysis_mode=compare.get("analysis_mode", "inhibitor_combination"),
                 duplicate_strategy=compare.get("duplicate_strategy", "mean"),
@@ -384,7 +395,7 @@ def run_pipeline(
             roc_results, skipped_info = calculate_roc_metrics(
                 df_experiment=exp_full_df,
                 df_predictions=pred_full_df,
-                cell_line_list=general.get("cell_lines", []),
+                cell_line_list=cell_lines,
                 threshold=threshold,
                 verbose=verbose,
                 output_path=output
