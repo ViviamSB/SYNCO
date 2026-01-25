@@ -1,0 +1,609 @@
+,drug_combination,cell_line,synergy
+0,AZD-8055 + Capivasertib,C2BBE1,5.059295998
+1,AZD-8055 + Ipatasertib,C2BBE1,4.160293614
+2,AZD-8055 + Lapatinib,C2BBE1,10.74002533
+3,AZD-8055 + Navitoclax,C2BBE1,-4.972144182
+4,AZD-8055 + Neratinib,C2BBE1,2.299110991
+5,AZD-8055 + Obatoclax,C2BBE1,6.750379424
+6,AZD-8055 + Palbociclib,C2BBE1,-1.366015714
+7,AZD-8055 + Ulixertinib,C2BBE1,4.667445162
+8,Capivasertib + Lapatinib,C2BBE1,24.56644497
+9,Capivasertib + Neratinib,C2BBE1,14.32944997
+10,Everolimus + Capivasertib,C2BBE1,15.2192974
+11,Everolimus + Ipatasertib,C2BBE1,15.66787242
+12,Everolimus + Lapatinib,C2BBE1,20.57916838
+13,Everolimus + Navitoclax,C2BBE1,-5.171084106
+14,Everolimus + Neratinib,C2BBE1,3.252215534
+15,Everolimus + Obatoclax,C2BBE1,15.0767786
+16,Everolimus + Palbociclib,C2BBE1,9.212684612
+17,Everolimus + Ulixertinib,C2BBE1,13.36899241
+18,Ipatasertib + Lapatinib,C2BBE1,26.93925636
+19,Ipatasertib + Neratinib,C2BBE1,0.127735378
+20,PF-477736 + MK-1775,C2BBE1,-4.628879213
+21,PF-477736 + Niraparib,C2BBE1,-6.689295347
+22,PF-477736 + Olaparib,C2BBE1,-12.89263236
+23,PF-477736 + PF-3644022,C2BBE1,-0.437683593
+24,PF-477736 + Palbociclib,C2BBE1,-1.544776367
+25,Prexasertib + MK-1775,C2BBE1,12.46070978
+26,Prexasertib + Niraparib,C2BBE1,1.026834209
+27,Prexasertib + Olaparib,C2BBE1,-13.50311331
+28,Prexasertib + PF-3644022,C2BBE1,-0.292359773
+29,Prexasertib + Palbociclib,C2BBE1,-3.671044592
+30,Torin 1 + Capivasertib,C2BBE1,10.58986412
+31,Torin 1 + Ipatasertib,C2BBE1,9.36612698
+32,Torin 1 + Lapatinib,C2BBE1,17.21043369
+33,Torin 1 + Navitoclax,C2BBE1,-9.604877476
+34,Torin 1 + Neratinib,C2BBE1,-1.066734261
+35,Torin 1 + Obatoclax,C2BBE1,13.6852991
+36,Torin 1 + Palbociclib,C2BBE1,4.472987256
+37,Torin 1 + Ulixertinib,C2BBE1,8.7530407
+38,AZD-8055 + Capivasertib,CAR1,5.841557483
+39,AZD-8055 + Ipatasertib,CAR1,11.20918505
+40,AZD-8055 + Lapatinib,CAR1,18.3044596
+41,AZD-8055 + Navitoclax,CAR1,16.92049151
+42,AZD-8055 + Neratinib,CAR1,19.0119964
+43,AZD-8055 + Obatoclax,CAR1,7.638347624
+44,AZD-8055 + Palbociclib,CAR1,5.123659208
+45,AZD-8055 + Ulixertinib,CAR1,6.701518917
+46,Capivasertib + Lapatinib,CAR1,15.5591876
+47,Capivasertib + Neratinib,CAR1,18.96188844
+48,Everolimus + Capivasertib,CAR1,11.91344034
+49,Everolimus + Ipatasertib,CAR1,14.60107217
+50,Everolimus + Lapatinib,CAR1,15.20290532
+51,Everolimus + Navitoclax,CAR1,11.97593842
+52,Everolimus + Neratinib,CAR1,17.97987472
+53,Everolimus + Obatoclax,CAR1,14.28237654
+54,Everolimus + Palbociclib,CAR1,4.743510752
+55,Everolimus + Ulixertinib,CAR1,8.515734785
+56,Ipatasertib + Lapatinib,CAR1,19.81067295
+57,Ipatasertib + Neratinib,CAR1,25.6004046
+58,PF-477736 + MK-1775,CAR1,24.42975696
+59,PF-477736 + Niraparib,CAR1,1.278373141
+60,PF-477736 + Olaparib,CAR1,0.600272222
+61,PF-477736 + PF-3644022,CAR1,9.079749956
+62,PF-477736 + Palbociclib,CAR1,-12.87755678
+63,Prexasertib + MK-1775,CAR1,26.38022237
+64,Prexasertib + Niraparib,CAR1,-2.542851387
+65,Prexasertib + Olaparib,CAR1,3.166103226
+66,Prexasertib + PF-3644022,CAR1,5.486514568
+67,Prexasertib + Palbociclib,CAR1,-28.38544047
+68,Torin 1 + Capivasertib,CAR1,11.87869306
+69,Torin 1 + Ipatasertib,CAR1,13.03171247
+70,Torin 1 + Lapatinib,CAR1,16.66911758
+71,Torin 1 + Navitoclax,CAR1,15.10049765
+72,Torin 1 + Neratinib,CAR1,18.2824329
+73,Torin 1 + Obatoclax,CAR1,13.00768481
+74,Torin 1 + Palbociclib,CAR1,8.25217356
+75,Torin 1 + Ulixertinib,CAR1,11.6265273
+76,AZD-8055 + Capivasertib,CL11,5.475995301
+77,AZD-8055 + Ipatasertib,CL11,-7.862537697
+78,AZD-8055 + Lapatinib,CL11,-13.21610323
+79,AZD-8055 + Navitoclax,CL11,-22.37896751
+80,AZD-8055 + Neratinib,CL11,-12.03771568
+81,AZD-8055 + Obatoclax,CL11,4.631934152
+82,AZD-8055 + Palbociclib,CL11,-1.567140227
+83,AZD-8055 + Ulixertinib,CL11,12.76149961
+84,Capivasertib + Lapatinib,CL11,-1.253774339
+85,Capivasertib + Neratinib,CL11,2.860629018
+86,Everolimus + Capivasertib,CL11,12.72650174
+87,Everolimus + Ipatasertib,CL11,5.449110594
+88,Everolimus + Lapatinib,CL11,1.876399624
+89,Everolimus + Navitoclax,CL11,-4.46576728
+90,Everolimus + Neratinib,CL11,-3.763332006
+91,Everolimus + Obatoclax,CL11,9.135234238
+92,Everolimus + Palbociclib,CL11,2.907323195
+93,Everolimus + Ulixertinib,CL11,28.97239696
+94,Ipatasertib + Lapatinib,CL11,1.095169575
+95,Ipatasertib + Neratinib,CL11,-5.944506522
+96,PF-477736 + MK-1775,CL11,6.038031147
+97,PF-477736 + Niraparib,CL11,-4.018382651
+98,PF-477736 + Olaparib,CL11,-3.700920147
+99,PF-477736 + PF-3644022,CL11,2.40020471
+100,PF-477736 + Palbociclib,CL11,3.167513919
+101,Prexasertib + MK-1775,CL11,4.17295756
+102,Prexasertib + Niraparib,CL11,-6.446668837
+103,Prexasertib + Olaparib,CL11,-15.29463227
+104,Prexasertib + PF-3644022,CL11,-16.12121097
+105,Prexasertib + Palbociclib,CL11,-3.891081783
+106,Torin 1 + Capivasertib,CL11,5.17706908
+107,Torin 1 + Ipatasertib,CL11,-7.249731763
+108,Torin 1 + Lapatinib,CL11,-7.977442751
+109,Torin 1 + Navitoclax,CL11,-13.79161543
+110,Torin 1 + Neratinib,CL11,-4.506388779
+111,Torin 1 + Obatoclax,CL11,6.602155226
+112,Torin 1 + Palbociclib,CL11,-2.458102644
+113,Torin 1 + Ulixertinib,CL11,9.217003521
+114,AZD-8055 + Capivasertib,HT115,18.32476544
+115,AZD-8055 + Ipatasertib,HT115,0.685879182
+116,AZD-8055 + Lapatinib,HT115,1.260896388
+117,AZD-8055 + Navitoclax,HT115,-13.69606644
+118,AZD-8055 + Neratinib,HT115,-5.924441352
+119,AZD-8055 + Obatoclax,HT115,7.393244163
+120,AZD-8055 + Palbociclib,HT115,-8.607893466
+121,AZD-8055 + Ulixertinib,HT115,-6.384213319
+122,Capivasertib + Lapatinib,HT115,2.589538469
+123,Capivasertib + Neratinib,HT115,12.04003262
+124,Everolimus + Capivasertib,HT115,25.95432154
+125,Everolimus + Ipatasertib,HT115,13.85070528
+126,Everolimus + Lapatinib,HT115,9.683385726
+127,Everolimus + Navitoclax,HT115,2.988167102
+128,Everolimus + Neratinib,HT115,6.032807255
+129,Everolimus + Obatoclax,HT115,20.01077673
+130,Everolimus + Palbociclib,HT115,6.086912999
+131,Everolimus + Ulixertinib,HT115,18.58265077
+132,Ipatasertib + Lapatinib,HT115,19.01449039
+133,Ipatasertib + Neratinib,HT115,2.15451337
+134,PF-477736 + MK-1775,HT115,-5.545424048
+135,PF-477736 + Niraparib,HT115,-7.122598383
+136,PF-477736 + Olaparib,HT115,-9.925234641
+137,PF-477736 + PF-3644022,HT115,-9.810644875
+138,PF-477736 + Palbociclib,HT115,-3.250543989
+139,Prexasertib + MK-1775,HT115,0.0087012
+140,Prexasertib + Niraparib,HT115,1.741921677
+141,Prexasertib + Olaparib,HT115,-7.353335102
+142,Prexasertib + PF-3644022,HT115,-15.4941007
+143,Prexasertib + Palbociclib,HT115,-11.19914333
+144,Torin 1 + Capivasertib,HT115,8.464043431
+145,Torin 1 + Ipatasertib,HT115,-9.194457224
+146,Torin 1 + Lapatinib,HT115,5.981248043
+147,Torin 1 + Navitoclax,HT115,-13.4060503
+148,Torin 1 + Neratinib,HT115,-2.48911277
+149,Torin 1 + Obatoclax,HT115,8.088285376
+150,Torin 1 + Palbociclib,HT115,-9.145043062
+151,Torin 1 + Ulixertinib,HT115,-2.919607128
+152,AZD-8055 + Capivasertib,LS123,7.64908779
+153,AZD-8055 + Ipatasertib,LS123,10.75500246
+154,AZD-8055 + Lapatinib,LS123,16.68694203
+155,AZD-8055 + Navitoclax,LS123,23.22242042
+156,AZD-8055 + Neratinib,LS123,20.18205147
+157,AZD-8055 + Obatoclax,LS123,16.81648568
+158,AZD-8055 + Palbociclib,LS123,-0.977657128
+159,AZD-8055 + Ulixertinib,LS123,5.327901919
+160,Capivasertib + Lapatinib,LS123,10.80763037
+161,Capivasertib + Neratinib,LS123,17.06639207
+162,Everolimus + Capivasertib,LS123,15.01348574
+163,Everolimus + Ipatasertib,LS123,15.05381289
+164,Everolimus + Lapatinib,LS123,24.45083972
+165,Everolimus + Navitoclax,LS123,23.37505288
+166,Everolimus + Neratinib,LS123,22.2139609
+167,Everolimus + Obatoclax,LS123,10.93813505
+168,Everolimus + Palbociclib,LS123,-1.367469055
+169,Everolimus + Ulixertinib,LS123,10.75691645
+170,Ipatasertib + Lapatinib,LS123,4.592171572
+171,Ipatasertib + Neratinib,LS123,7.64550296
+172,PF-477736 + MK-1775,LS123,27.33258129
+173,PF-477736 + Niraparib,LS123,11.70973812
+174,PF-477736 + Olaparib,LS123,2.020814226
+175,PF-477736 + PF-3644022,LS123,25.408327
+176,PF-477736 + Palbociclib,LS123,8.079667169
+177,Prexasertib + MK-1775,LS123,19.0738737
+178,Prexasertib + Niraparib,LS123,2.013648454
+179,Prexasertib + Olaparib,LS123,-1.113639964
+180,Prexasertib + PF-3644022,LS123,7.081072245
+181,Prexasertib + Palbociclib,LS123,-5.585888389
+182,Torin 1 + Capivasertib,LS123,9.291091166
+183,Torin 1 + Ipatasertib,LS123,8.823679821
+184,Torin 1 + Lapatinib,LS123,14.96493586
+185,Torin 1 + Navitoclax,LS123,16.27035192
+186,Torin 1 + Neratinib,LS123,18.54322074
+187,Torin 1 + Obatoclax,LS123,13.83168686
+188,Torin 1 + Palbociclib,LS123,-0.824165232
+189,Torin 1 + Ulixertinib,LS123,6.921868063
+190,AZD-8055 + Capivasertib,NCIH508,5.760711844
+191,AZD-8055 + Ipatasertib,NCIH508,3.275962605
+192,AZD-8055 + Lapatinib,NCIH508,7.996840438
+193,AZD-8055 + Navitoclax,NCIH508,25.28721176
+194,AZD-8055 + Neratinib,NCIH508,6.235446914
+195,AZD-8055 + Obatoclax,NCIH508,8.243421949
+196,AZD-8055 + Palbociclib,NCIH508,2.202388616
+197,AZD-8055 + Ulixertinib,NCIH508,13.95298339
+198,Capivasertib + Lapatinib,NCIH508,14.71022725
+199,Capivasertib + Neratinib,NCIH508,12.43511619
+200,Everolimus + Capivasertib,NCIH508,6.343633233
+201,Everolimus + Ipatasertib,NCIH508,3.885465894
+202,Everolimus + Lapatinib,NCIH508,3.309719921
+203,Everolimus + Navitoclax,NCIH508,26.8501285
+204,Everolimus + Neratinib,NCIH508,2.009651022
+205,Everolimus + Obatoclax,NCIH508,15.69192625
+206,Everolimus + Palbociclib,NCIH508,15.73202407
+207,Everolimus + Ulixertinib,NCIH508,17.27956662
+208,Ipatasertib + Lapatinib,NCIH508,18.80737983
+209,Ipatasertib + Neratinib,NCIH508,17.87378582
+210,PF-477736 + MK-1775,NCIH508,19.72011014
+211,PF-477736 + Niraparib,NCIH508,-6.883660357
+212,PF-477736 + Olaparib,NCIH508,2.522965921
+213,PF-477736 + PF-3644022,NCIH508,4.765836736
+214,PF-477736 + Palbociclib,NCIH508,-7.66183318
+215,Prexasertib + MK-1775,NCIH508,20.4678646
+216,Prexasertib + Niraparib,NCIH508,-7.137621116
+217,Prexasertib + Olaparib,NCIH508,2.796515242
+218,Prexasertib + PF-3644022,NCIH508,1.848652622
+219,Prexasertib + Palbociclib,NCIH508,-14.90277523
+220,Torin 1 + Capivasertib,NCIH508,13.20568407
+221,Torin 1 + Ipatasertib,NCIH508,7.778042723
+222,Torin 1 + Lapatinib,NCIH508,9.727518505
+223,Torin 1 + Navitoclax,NCIH508,25.11510262
+224,Torin 1 + Neratinib,NCIH508,9.79876015
+225,Torin 1 + Obatoclax,NCIH508,13.68948552
+226,Torin 1 + Palbociclib,NCIH508,12.53973627
+227,Torin 1 + Ulixertinib,NCIH508,12.74240127
+228,AZD-8055 + Capivasertib,NCIH716,11.7102873
+229,AZD-8055 + Ipatasertib,NCIH716,6.51080794
+230,AZD-8055 + Lapatinib,NCIH716,6.927422095
+231,AZD-8055 + Navitoclax,NCIH716,33.77740792
+232,AZD-8055 + Neratinib,NCIH716,-1.547252128
+233,AZD-8055 + Obatoclax,NCIH716,7.913572326
+234,AZD-8055 + Palbociclib,NCIH716,-3.541904063
+235,AZD-8055 + Ulixertinib,NCIH716,10.78640251
+236,Capivasertib + Lapatinib,NCIH716,23.01587268
+237,Capivasertib + Neratinib,NCIH716,10.14585583
+238,Everolimus + Capivasertib,NCIH716,19.04292697
+239,Everolimus + Ipatasertib,NCIH716,14.81865274
+240,Everolimus + Lapatinib,NCIH716,14.35239411
+241,Everolimus + Navitoclax,NCIH716,37.05498945
+242,Everolimus + Neratinib,NCIH716,2.891922193
+243,Everolimus + Obatoclax,NCIH716,23.49582239
+244,Everolimus + Palbociclib,NCIH716,13.68606742
+245,Everolimus + Ulixertinib,NCIH716,19.20340652
+246,Ipatasertib + Lapatinib,NCIH716,7.960400019
+247,Ipatasertib + Neratinib,NCIH716,5.047685935
+248,PF-477736 + MK-1775,NCIH716,16.57541196
+249,PF-477736 + Niraparib,NCIH716,-4.027168729
+250,PF-477736 + Olaparib,NCIH716,-6.472093151
+251,PF-477736 + PF-3644022,NCIH716,6.616348642
+252,PF-477736 + Palbociclib,NCIH716,6.074380095
+253,Prexasertib + MK-1775,NCIH716,13.85641533
+254,Prexasertib + Niraparib,NCIH716,-15.29654483
+255,Prexasertib + Olaparib,NCIH716,-17.03203743
+256,Prexasertib + PF-3644022,NCIH716,-10.62747686
+257,Prexasertib + Palbociclib,NCIH716,-17.1473225
+258,Torin 1 + Capivasertib,NCIH716,13.16731965
+259,Torin 1 + Ipatasertib,NCIH716,10.32559586
+260,Torin 1 + Lapatinib,NCIH716,12.40652138
+261,Torin 1 + Navitoclax,NCIH716,25.80577742
+262,Torin 1 + Neratinib,NCIH716,0.702079936
+263,Torin 1 + Obatoclax,NCIH716,16.6158201
+264,Torin 1 + Palbociclib,NCIH716,9.418128373
+265,Torin 1 + Ulixertinib,NCIH716,22.50956649
+266,AZD-8055 + Capivasertib,NCIH747,8.782489377
+267,AZD-8055 + Ipatasertib,NCIH747,6.411991059
+268,AZD-8055 + Lapatinib,NCIH747,9.72789885
+269,AZD-8055 + Navitoclax,NCIH747,8.326031374
+270,AZD-8055 + Neratinib,NCIH747,6.632716063
+271,AZD-8055 + Obatoclax,NCIH747,8.162864264
+272,AZD-8055 + Palbociclib,NCIH747,-1.990159784
+273,AZD-8055 + Ulixertinib,NCIH747,11.1011702
+274,Capivasertib + Lapatinib,NCIH747,17.07333697
+275,Capivasertib + Neratinib,NCIH747,22.22890596
+276,Everolimus + Capivasertib,NCIH747,15.65867861
+277,Everolimus + Ipatasertib,NCIH747,14.61279642
+278,Everolimus + Lapatinib,NCIH747,9.843448728
+279,Everolimus + Navitoclax,NCIH747,10.47334336
+280,Everolimus + Neratinib,NCIH747,13.31140522
+281,Everolimus + Obatoclax,NCIH747,25.73954041
+282,Everolimus + Palbociclib,NCIH747,6.82589723
+283,Everolimus + Ulixertinib,NCIH747,13.01384223
+284,Ipatasertib + Lapatinib,NCIH747,18.02310985
+285,Ipatasertib + Neratinib,NCIH747,19.96852811
+286,PF-477736 + MK-1775,NCIH747,-2.550416544
+287,PF-477736 + Niraparib,NCIH747,-1.603318793
+288,PF-477736 + Olaparib,NCIH747,-3.792425151
+289,PF-477736 + PF-3644022,NCIH747,-11.61994761
+290,PF-477736 + Palbociclib,NCIH747,-12.85391004
+291,Prexasertib + MK-1775,NCIH747,9.047794061
+292,Prexasertib + Niraparib,NCIH747,0.73778724
+293,Prexasertib + Olaparib,NCIH747,1.922283458
+294,Prexasertib + PF-3644022,NCIH747,-2.212382303
+295,Prexasertib + Palbociclib,NCIH747,-8.090788519
+296,Torin 1 + Capivasertib,NCIH747,10.63717994
+297,Torin 1 + Ipatasertib,NCIH747,10.4158272
+298,Torin 1 + Lapatinib,NCIH747,10.52437493
+299,Torin 1 + Navitoclax,NCIH747,8.613168232
+300,Torin 1 + Neratinib,NCIH747,9.196641522
+301,Torin 1 + Obatoclax,NCIH747,12.10425255
+302,Torin 1 + Palbociclib,NCIH747,2.318124683
+303,Torin 1 + Ulixertinib,NCIH747,11.30109969
+304,AZD-8055 + Capivasertib,SNU81,5.875838711
+305,AZD-8055 + Ipatasertib,SNU81,4.220303947
+306,AZD-8055 + Lapatinib,SNU81,4.843770577
+307,AZD-8055 + Navitoclax,SNU81,19.78773505
+308,AZD-8055 + Neratinib,SNU81,-2.3710483
+309,AZD-8055 + Obatoclax,SNU81,9.28287095
+310,AZD-8055 + Palbociclib,SNU81,-1.3300907
+311,AZD-8055 + Ulixertinib,SNU81,1.447512106
+312,Capivasertib + Lapatinib,SNU81,9.580301393
+313,Capivasertib + Neratinib,SNU81,7.648119942
+314,Everolimus + Capivasertib,SNU81,14.33003343
+315,Everolimus + Ipatasertib,SNU81,9.670047943
+316,Everolimus + Lapatinib,SNU81,7.004736944
+317,Everolimus + Navitoclax,SNU81,17.59253238
+318,Everolimus + Neratinib,SNU81,-1.984417187
+319,Everolimus + Obatoclax,SNU81,11.98869564
+320,Everolimus + Palbociclib,SNU81,1.602410861
+321,Everolimus + Ulixertinib,SNU81,4.626996219
+322,Ipatasertib + Lapatinib,SNU81,5.752377805
+323,Ipatasertib + Neratinib,SNU81,-1.440619275
+324,PF-477736 + MK-1775,SNU81,18.05223482
+325,PF-477736 + Niraparib,SNU81,1.788240556
+326,PF-477736 + Olaparib,SNU81,6.405582467
+327,PF-477736 + PF-3644022,SNU81,5.64211309
+328,PF-477736 + Palbociclib,SNU81,-0.19227356
+329,Prexasertib + MK-1775,SNU81,16.01285368
+330,Prexasertib + Niraparib,SNU81,2.831807038
+331,Prexasertib + Olaparib,SNU81,0.335434674
+332,Prexasertib + PF-3644022,SNU81,2.956348505
+333,Prexasertib + Palbociclib,SNU81,-4.17103012
+334,Torin 1 + Capivasertib,SNU81,8.069323558
+335,Torin 1 + Ipatasertib,SNU81,6.572988601
+336,Torin 1 + Lapatinib,SNU81,2.587072825
+337,Torin 1 + Navitoclax,SNU81,16.53046289
+338,Torin 1 + Neratinib,SNU81,-0.012075206
+339,Torin 1 + Obatoclax,SNU81,13.30393368
+340,Torin 1 + Palbociclib,SNU81,-0.697246352
+341,Torin 1 + Ulixertinib,SNU81,1.70752621
+342,AZD-8055 + Capivasertib,SW1116,-6.708137049
+343,AZD-8055 + Ipatasertib,SW1116,-7.805379738
+344,AZD-8055 + Lapatinib,SW1116,8.641622272
+345,AZD-8055 + Navitoclax,SW1116,8.475028182
+346,AZD-8055 + Neratinib,SW1116,6.049595537
+347,AZD-8055 + Obatoclax,SW1116,6.539612098
+348,AZD-8055 + Palbociclib,SW1116,-1.497618885
+349,AZD-8055 + Ulixertinib,SW1116,4.222305657
+350,Capivasertib + Lapatinib,SW1116,15.23856555
+351,Capivasertib + Neratinib,SW1116,1.845429633
+352,Everolimus + Capivasertib,SW1116,-3.279182586
+353,Everolimus + Ipatasertib,SW1116,-14.38121061
+354,Everolimus + Lapatinib,SW1116,-0.180847753
+355,Everolimus + Navitoclax,SW1116,2.916524509
+356,Everolimus + Neratinib,SW1116,-1.667559351
+357,Everolimus + Obatoclax,SW1116,5.539032637
+358,Everolimus + Palbociclib,SW1116,-1.735892301
+359,Everolimus + Ulixertinib,SW1116,2.972393193
+360,Ipatasertib + Lapatinib,SW1116,9.793614537
+361,Ipatasertib + Neratinib,SW1116,-2.244477183
+362,PF-477736 + MK-1775,SW1116,-14.57296326
+363,PF-477736 + Niraparib,SW1116,-22.96962765
+364,PF-477736 + Olaparib,SW1116,-25.21276859
+365,PF-477736 + PF-3644022,SW1116,-2.652158863
+366,PF-477736 + Palbociclib,SW1116,-1.475581425
+367,Prexasertib + MK-1775,SW1116,-18.41801077
+368,Prexasertib + Niraparib,SW1116,-25.74621601
+369,Prexasertib + Olaparib,SW1116,-29.49284207
+370,Prexasertib + PF-3644022,SW1116,-9.270305274
+371,Prexasertib + Palbociclib,SW1116,-8.641218827
+372,Torin 1 + Capivasertib,SW1116,-3.659517005
+373,Torin 1 + Ipatasertib,SW1116,-11.70261478
+374,Torin 1 + Lapatinib,SW1116,-1.909640796
+375,Torin 1 + Navitoclax,SW1116,4.470418813
+376,Torin 1 + Neratinib,SW1116,-1.602918486
+377,Torin 1 + Obatoclax,SW1116,1.062381822
+378,Torin 1 + Palbociclib,SW1116,-6.326221332
+379,Torin 1 + Ulixertinib,SW1116,-4.856127133
+380,AZD-8055 + Capivasertib,SW1417,-1.209733299
+381,AZD-8055 + Ipatasertib,SW1417,-0.796830922
+382,AZD-8055 + Lapatinib,SW1417,6.157808711
+383,AZD-8055 + Navitoclax,SW1417,11.42991004
+384,AZD-8055 + Neratinib,SW1417,3.441629902
+385,AZD-8055 + Obatoclax,SW1417,6.880009383
+386,AZD-8055 + Palbociclib,SW1417,1.230634626
+387,AZD-8055 + Ulixertinib,SW1417,9.035116033
+388,Capivasertib + Lapatinib,SW1417,8.720405881
+389,Capivasertib + Neratinib,SW1417,-1.897542263
+390,Everolimus + Capivasertib,SW1417,4.214740388
+391,Everolimus + Ipatasertib,SW1417,2.962465485
+392,Everolimus + Lapatinib,SW1417,4.383221983
+393,Everolimus + Navitoclax,SW1417,3.668183815
+394,Everolimus + Neratinib,SW1417,3.875507004
+395,Everolimus + Obatoclax,SW1417,2.563090684
+396,Everolimus + Palbociclib,SW1417,-0.423609716
+397,Everolimus + Ulixertinib,SW1417,6.620821864
+398,Ipatasertib + Lapatinib,SW1417,9.065901791
+399,Ipatasertib + Neratinib,SW1417,-4.051309538
+400,PF-477736 + MK-1775,SW1417,-4.927592677
+401,PF-477736 + Niraparib,SW1417,-5.058191319
+402,PF-477736 + Olaparib,SW1417,-9.448041877
+403,PF-477736 + PF-3644022,SW1417,-5.325818436
+404,PF-477736 + Palbociclib,SW1417,-5.765464891
+405,Prexasertib + MK-1775,SW1417,-6.806261401
+406,Prexasertib + Niraparib,SW1417,-7.656458835
+407,Prexasertib + Olaparib,SW1417,-10.68421204
+408,Prexasertib + PF-3644022,SW1417,-7.850691409
+409,Prexasertib + Palbociclib,SW1417,-10.03275305
+410,Torin 1 + Capivasertib,SW1417,-2.852833689
+411,Torin 1 + Ipatasertib,SW1417,0.41369891
+412,Torin 1 + Lapatinib,SW1417,0.511776368
+413,Torin 1 + Navitoclax,SW1417,1.747648234
+414,Torin 1 + Neratinib,SW1417,-4.630310836
+415,Torin 1 + Obatoclax,SW1417,-3.773005593
+416,Torin 1 + Palbociclib,SW1417,-7.376681588
+417,Torin 1 + Ulixertinib,SW1417,-2.679795498
+418,AZD-8055 + Capivasertib,SW1463,-0.528206793
+419,AZD-8055 + Ipatasertib,SW1463,-2.909594395
+420,AZD-8055 + Lapatinib,SW1463,20.08318417
+421,AZD-8055 + Navitoclax,SW1463,14.13848859
+422,AZD-8055 + Neratinib,SW1463,-1.765927761
+423,AZD-8055 + Obatoclax,SW1463,13.34712262
+424,AZD-8055 + Palbociclib,SW1463,1.6313249
+425,AZD-8055 + Ulixertinib,SW1463,7.538900292
+426,Capivasertib + Lapatinib,SW1463,21.0275799
+427,Capivasertib + Neratinib,SW1463,4.422643082
+428,Everolimus + Capivasertib,SW1463,-0.016695017
+429,Everolimus + Ipatasertib,SW1463,-1.368040692
+430,Everolimus + Lapatinib,SW1463,6.887616838
+431,Everolimus + Navitoclax,SW1463,2.358865567
+432,Everolimus + Neratinib,SW1463,-16.51158403
+433,Everolimus + Obatoclax,SW1463,11.10553754
+434,Everolimus + Palbociclib,SW1463,-3.703352866
+435,Everolimus + Ulixertinib,SW1463,2.530628436
+436,Ipatasertib + Lapatinib,SW1463,17.10890913
+437,Ipatasertib + Neratinib,SW1463,-1.109832873
+438,PF-477736 + MK-1775,SW1463,-15.72899095
+439,PF-477736 + Niraparib,SW1463,-39.20125857
+440,PF-477736 + Olaparib,SW1463,-43.06708302
+441,PF-477736 + PF-3644022,SW1463,-15.71463356
+442,PF-477736 + Palbociclib,SW1463,-8.94511385
+443,Prexasertib + MK-1775,SW1463,1.345326999
+444,Prexasertib + Niraparib,SW1463,-33.43831521
+445,Prexasertib + Olaparib,SW1463,-37.59471866
+446,Prexasertib + PF-3644022,SW1463,-10.14209785
+447,Prexasertib + Palbociclib,SW1463,-15.3926095
+448,Torin 1 + Capivasertib,SW1463,-5.095960675
+449,Torin 1 + Ipatasertib,SW1463,-2.984322425
+450,Torin 1 + Lapatinib,SW1463,15.14755903
+451,Torin 1 + Navitoclax,SW1463,9.172055353
+452,Torin 1 + Neratinib,SW1463,-6.910925754
+453,Torin 1 + Obatoclax,SW1463,6.29868226
+454,Torin 1 + Palbociclib,SW1463,-2.374934262
+455,Torin 1 + Ulixertinib,SW1463,0.581943764
+456,AZD-8055 + Capivasertib,SW620,2.210337888
+457,AZD-8055 + Ipatasertib,SW620,-4.793498524
+458,AZD-8055 + Lapatinib,SW620,-10.46598019
+459,AZD-8055 + Navitoclax,SW620,5.716612568
+460,AZD-8055 + Neratinib,SW620,-0.942739704
+461,AZD-8055 + Obatoclax,SW620,-0.578742324
+462,AZD-8055 + Palbociclib,SW620,0.686716074
+463,AZD-8055 + Ulixertinib,SW620,4.971321198
+464,Capivasertib + Lapatinib,SW620,1.971744588
+465,Capivasertib + Neratinib,SW620,-5.07461875
+466,Everolimus + Capivasertib,SW620,5.715075498
+467,Everolimus + Ipatasertib,SW620,0.931724977
+468,Everolimus + Lapatinib,SW620,-14.25409909
+469,Everolimus + Navitoclax,SW620,2.027709935
+470,Everolimus + Neratinib,SW620,-9.236232
+471,Everolimus + Obatoclax,SW620,2.65104932
+472,Everolimus + Palbociclib,SW620,0.414951528
+473,Everolimus + Ulixertinib,SW620,4.201106767
+474,Ipatasertib + Lapatinib,SW620,2.7275498
+475,Ipatasertib + Neratinib,SW620,-13.81927941
+476,PF-477736 + MK-1775,SW620,10.19638407
+477,PF-477736 + Niraparib,SW620,12.05283837
+478,PF-477736 + Olaparib,SW620,-4.715592754
+479,PF-477736 + PF-3644022,SW620,-21.53330619
+480,PF-477736 + Palbociclib,SW620,0.16554918
+481,Prexasertib + MK-1775,SW620,16.78600606
+482,Prexasertib + Niraparib,SW620,10.84192568
+483,Prexasertib + Olaparib,SW620,-6.276146123
+484,Prexasertib + PF-3644022,SW620,-15.44635798
+485,Prexasertib + Palbociclib,SW620,-9.143599102
+486,Torin 1 + Capivasertib,SW620,6.980714858
+487,Torin 1 + Ipatasertib,SW620,-0.500862233
+488,Torin 1 + Lapatinib,SW620,-14.03121221
+489,Torin 1 + Navitoclax,SW620,2.164893253
+490,Torin 1 + Neratinib,SW620,-8.303277491
+491,Torin 1 + Obatoclax,SW620,1.451990904
+492,Torin 1 + Palbociclib,SW620,-1.759152707
+493,Torin 1 + Ulixertinib,SW620,-4.173807867
+494,AZD-8055 + Capivasertib,SW837,10.41949605
+495,AZD-8055 + Ipatasertib,SW837,10.70436546
+496,AZD-8055 + Lapatinib,SW837,16.53929615
+497,AZD-8055 + Navitoclax,SW837,27.28772275
+498,AZD-8055 + Neratinib,SW837,12.46020885
+499,AZD-8055 + Obatoclax,SW837,10.53341113
+500,AZD-8055 + Palbociclib,SW837,0.262354444
+501,AZD-8055 + Ulixertinib,SW837,5.664108703
+502,Capivasertib + Lapatinib,SW837,17.79121924
+503,Capivasertib + Neratinib,SW837,10.65231378
+504,Everolimus + Capivasertib,SW837,4.432419864
+505,Everolimus + Ipatasertib,SW837,2.81572331
+506,Everolimus + Lapatinib,SW837,2.390166668
+507,Everolimus + Navitoclax,SW837,19.27985961
+508,Everolimus + Neratinib,SW837,1.359997669
+509,Everolimus + Obatoclax,SW837,7.118228137
+510,Everolimus + Palbociclib,SW837,0.885087775
+511,Everolimus + Ulixertinib,SW837,1.316713492
+512,Ipatasertib + Lapatinib,SW837,16.02071915
+513,Ipatasertib + Neratinib,SW837,11.22586995
+514,PF-477736 + MK-1775,SW837,6.744520906
+515,PF-477736 + Niraparib,SW837,-0.509542366
+516,PF-477736 + Olaparib,SW837,-0.733369812
+517,PF-477736 + PF-3644022,SW837,-0.722686637
+518,PF-477736 + Palbociclib,SW837,-6.544959341
+519,Prexasertib + MK-1775,SW837,6.542212019
+520,Prexasertib + Niraparib,SW837,-2.859069112
+521,Prexasertib + Olaparib,SW837,-0.685123349
+522,Prexasertib + PF-3644022,SW837,-0.959242029
+523,Prexasertib + Palbociclib,SW837,-8.336367485
+524,Torin 1 + Capivasertib,SW837,5.39075182
+525,Torin 1 + Ipatasertib,SW837,7.532483802
+526,Torin 1 + Lapatinib,SW837,8.29385471
+527,Torin 1 + Navitoclax,SW837,22.23685776
+528,Torin 1 + Neratinib,SW837,6.30428563
+529,Torin 1 + Obatoclax,SW837,4.005375046
+530,Torin 1 + Palbociclib,SW837,-1.706612285
+531,Torin 1 + Ulixertinib,SW837,-1.263106291
+532,AZD-8055 + Capivasertib,SW948,11.48249361
+533,AZD-8055 + Ipatasertib,SW948,14.29622341
+534,AZD-8055 + Lapatinib,SW948,19.14798562
+535,AZD-8055 + Navitoclax,SW948,21.35125509
+536,AZD-8055 + Neratinib,SW948,3.721114319
+537,AZD-8055 + Obatoclax,SW948,5.562877154
+538,AZD-8055 + Palbociclib,SW948,2.168639871
+539,AZD-8055 + Ulixertinib,SW948,15.52562719
+540,Capivasertib + Lapatinib,SW948,25.9980947
+541,Capivasertib + Neratinib,SW948,10.27745395
+542,Everolimus + Capivasertib,SW948,18.48060176
+543,Everolimus + Ipatasertib,SW948,15.00044431
+544,Everolimus + Lapatinib,SW948,20.70480728
+545,Everolimus + Navitoclax,SW948,22.05690745
+546,Everolimus + Neratinib,SW948,8.997834727
+547,Everolimus + Obatoclax,SW948,2.274815328
+548,Everolimus + Palbociclib,SW948,2.393139073
+549,Everolimus + Ulixertinib,SW948,15.15930073
+550,Ipatasertib + Lapatinib,SW948,22.65986623
+551,Ipatasertib + Neratinib,SW948,7.473154525
+552,PF-477736 + MK-1775,SW948,13.68267582
+553,PF-477736 + Niraparib,SW948,-9.923716682
+554,PF-477736 + Olaparib,SW948,0.540056896
+555,PF-477736 + PF-3644022,SW948,5.446654713
+556,PF-477736 + Palbociclib,SW948,-4.135512325
+557,Prexasertib + MK-1775,SW948,12.22025106
+558,Prexasertib + Niraparib,SW948,-14.71541822
+559,Prexasertib + Olaparib,SW948,-4.035372293
+560,Prexasertib + PF-3644022,SW948,3.695878719
+561,Prexasertib + Palbociclib,SW948,-11.05284949
+562,Torin 1 + Capivasertib,SW948,11.15083392
+563,Torin 1 + Ipatasertib,SW948,13.60609336
+564,Torin 1 + Lapatinib,SW948,12.47788867
+565,Torin 1 + Navitoclax,SW948,23.46498678
+566,Torin 1 + Neratinib,SW948,5.243945872
+567,Torin 1 + Obatoclax,SW948,-1.549835066
+568,Torin 1 + Palbociclib,SW948,2.490851872
+569,Torin 1 + Ulixertinib,SW948,10.36758712
+570,AZD-8055 + Capivasertib,T84,4.385304065
+571,AZD-8055 + Ipatasertib,T84,18.63053595
+572,AZD-8055 + Lapatinib,T84,30.6091966
+573,AZD-8055 + Navitoclax,T84,32.17602391
+574,AZD-8055 + Neratinib,T84,21.40115194
+575,AZD-8055 + Obatoclax,T84,6.940772205
+576,AZD-8055 + Palbociclib,T84,6.621643111
+577,AZD-8055 + Ulixertinib,T84,23.72198463
+578,Capivasertib + Lapatinib,T84,18.61143967
+579,Capivasertib + Neratinib,T84,18.28655805
+580,Everolimus + Capivasertib,T84,-4.296885041
+581,Everolimus + Ipatasertib,T84,9.297607642
+582,Everolimus + Lapatinib,T84,22.43872373
+583,Everolimus + Navitoclax,T84,27.67981463
+584,Everolimus + Neratinib,T84,18.04518076
+585,Everolimus + Obatoclax,T84,9.468724074
+586,Everolimus + Palbociclib,T84,5.945518302
+587,Everolimus + Ulixertinib,T84,33.90520676
+588,Ipatasertib + Lapatinib,T84,17.89778977
+589,Ipatasertib + Neratinib,T84,11.8212632
+590,PF-477736 + MK-1775,T84,29.19306692
+591,PF-477736 + Niraparib,T84,17.22530504
+592,PF-477736 + Olaparib,T84,2.100593177
+593,PF-477736 + PF-3644022,T84,29.14477387
+594,PF-477736 + Palbociclib,T84,27.97296776
+595,Prexasertib + MK-1775,T84,44.96404262
+596,Prexasertib + Niraparib,T84,12.765712
+597,Prexasertib + Olaparib,T84,5.64384734
+598,Prexasertib + PF-3644022,T84,24.12934529
+599,Prexasertib + Palbociclib,T84,16.13862722
+600,Torin 1 + Capivasertib,T84,-2.863349731
+601,Torin 1 + Ipatasertib,T84,7.267595715
+602,Torin 1 + Lapatinib,T84,18.68349368
+603,Torin 1 + Navitoclax,T84,21.36683406
+604,Torin 1 + Neratinib,T84,11.59941416
+605,Torin 1 + Obatoclax,T84,7.153675549
+606,Torin 1 + Palbociclib,T84,6.938734263
+607,Torin 1 + Ulixertinib,T84,25.82933225

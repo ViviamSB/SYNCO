@@ -1,0 +1,36 @@
+{
+  "paths": {
+    "base": "examples/oncologics/20251013/",
+    "pipeline_runs": "examples/oncologics/20251013/drabme_out",
+    "input": "examples/oncologics/20251013/synco_input/",
+    "output": "examples/oncologics/20251013/synco_output/"
+  },
+  "general": {
+    "cell_lines": [
+      "C2BBE1",
+      "CAR1",
+      "CL11",
+      "HT115",
+      "NCIH508",
+      "NCIH716",
+      "NCIH747",
+      "SNU81",
+      "SW620",
+      "SW837",
+      "SW948",
+      "SW1116",
+      "SW1417",
+      "SW1463",
+      "T84"
+    ],
+    "run_date": null,
+    "verbose": true
+  },
+  "compare": {
+    "prediction_method": "DrugLogics",
+    "threshold": 0.00001,
+    "synergy_column": "synergy",
+    "analysis_mode": "inhibitor_combination",
+    "duplicate_strategy": "mean"
+  }
+}

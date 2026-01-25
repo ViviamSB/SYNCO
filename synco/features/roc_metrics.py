@@ -2,7 +2,14 @@ import pandas
 import numpy as np
 from pathlib import Path
 from typing import Optional, Union, Tuple, Dict, List
-from sklearn.metrics import roc_auc_score, precision_recall_curve, average_precision_score, roc_curve, f1_score
+from sklearn.metrics import (
+    roc_auc_score,
+    precision_recall_curve,
+    average_precision_score,
+    roc_curve,
+    f1_score,
+    balanced_accuracy_score,
+)
 from ..utils import save_file
 import plotly.graph_objects as go
 import re
@@ -134,10 +141,14 @@ def _calculate_roc_metrics(
         y_true,
         y_score,
         cell_line: str,
-        threshold: float = 0.01
+        threshold: float = 0.01,
+        compute_traces: bool = True,
+        n_bootstrap: Optional[int] = None,
+        ci_level: float = 0.95,
+        rng: Optional[np.random.Generator] = None,
 ):
     """
-    Calculate ROC, PR, F1-score 
+    Calculate ROC, PR, F1-score, MCC, balanced accuracy, and optional bootstrap CIs.
     """
     # Apply threshold to y_true (binary synergies: 1 for synergy, 0 for no synergy)
     # Exp > threshold -> synergy (1)
@@ -157,55 +168,93 @@ def _calculate_roc_metrics(
         return None, None, None
         
     try:
-        # ROC AUC using flipped continuous prediction scores
+        # Core metrics
         roc_auc = roc_auc_score(y_true_binary, y_score_continuous)
-        
-        # PR AUC using flipped continuous prediction scores
         pr_auc = average_precision_score(y_true_binary, y_score_continuous)
-        
-        # F1 score using the threshold-based binary predictions
         f1 = f1_score(y_true_binary, y_score_binary)
-        
-        # ROC curve for plotting
-        fpr, tpr, roc_thresholds = roc_curve(y_true_binary, y_score_continuous)
-        
-        # PR curve for plotting  
-        precision, recall, pr_thresholds = precision_recall_curve(y_true_binary, y_score_continuous)
+
+        try:
+            bal_acc = balanced_accuracy_score(y_true_binary, y_score_binary)
+        except ValueError:
+            bal_acc = np.nan
+
+        fpr = tpr = roc_thresholds = precision = recall = None
+        if compute_traces:
+            # ROC curve for plotting
+            fpr, tpr, roc_thresholds = roc_curve(y_true_binary, y_score_continuous)
+            # PR curve for plotting  
+            precision, recall, pr_thresholds = precision_recall_curve(y_true_binary, y_score_continuous)
+
+        # Optional bootstrap CIs for AUCs
+        def _bootstrap_ci(metric_fn):
+            if n_bootstrap is None or n_bootstrap <= 0:
+                return None, None
+            auc_values = []
+            n_samples = len(y_true_binary)
+            generator = rng if rng is not None else np.random.default_rng()
+            for _ in range(n_bootstrap):
+                indices = generator.integers(0, n_samples, n_samples)
+                y_b = y_true_binary[indices]
+                s_b = y_score_continuous[indices]
+                # Skip if only one class in bootstrap
+                if len(np.unique(y_b)) < 2:
+                    continue
+                try:
+                    auc_values.append(metric_fn(y_b, s_b))
+                except ValueError:
+                    continue
+            if not auc_values:
+                return None, None
+            lower_q = 50 * (1 - ci_level)
+            upper_q = 100 - lower_q
+            return float(np.percentile(auc_values, lower_q)), float(np.percentile(auc_values, upper_q))
+
+        roc_auc_ci_low, roc_auc_ci_high = _bootstrap_ci(roc_auc_score)
+        pr_auc_ci_low, pr_auc_ci_high = _bootstrap_ci(average_precision_score)
 
         # Store results
         roc_results = {
             'cell_line': cell_line,
+            'threshold': threshold,
             'roc_auc': roc_auc,
             'pr_auc': pr_auc,
             'f1_score': f1,
+            'balanced_accuracy': bal_acc,
+            'roc_auc_ci_low': roc_auc_ci_low,
+            'roc_auc_ci_high': roc_auc_ci_high,
+            'pr_auc_ci_low': pr_auc_ci_low,
+            'pr_auc_ci_high': pr_auc_ci_high,
             'n_positive': int(np.sum(y_true_binary)),
             'n_negative': int(len(y_true_binary) - np.sum(y_true_binary)),
             'pred_min': float(y_score.min()),
-            'fpr': fpr.tolist(),
-            'tpr': tpr.tolist(),
-            'roc_thresholds': roc_thresholds.tolist()
         }
-        
-        roc_trace = (
-            roc_auc,
-            go.Scatter(
-                x=fpr,
-                y=tpr,
-                name=f'{cell_line} (AUC={roc_auc:.3f})',
-                mode='lines'
-        ))
-        pr_trace = (
-            pr_auc,
-            go.Scatter(
-                x=recall,
-                y=precision,
-                name=f'{cell_line} (PR AUC={pr_auc:.3f})',
-                mode='lines'
-        ))
+        if compute_traces and fpr is not None and tpr is not None:
+            roc_results['fpr'] = fpr.tolist()
+            roc_results['tpr'] = tpr.tolist()
+            roc_results['roc_thresholds'] = roc_thresholds.tolist()
+            roc_trace = (
+                roc_auc,
+                go.Scatter(
+                    x=fpr,
+                    y=tpr,
+                    name=f'{cell_line} (AUC={roc_auc:.3f})',
+                    mode='lines'
+            ))
+            pr_trace = (
+                pr_auc,
+                go.Scatter(
+                    x=recall,
+                    y=precision,
+                    name=f'{cell_line} (PR AUC={pr_auc:.3f})',
+                    mode='lines'
+            ))
+        else:
+            roc_trace = None
+            pr_trace = None
         
         return roc_results, roc_trace, pr_trace
         
-    except ValueError as e:
+    except ValueError:
         # Silently handle ROC calculation errors (e.g., NaN values, insufficient data)
         return None, None, None
 
@@ -217,7 +266,7 @@ def _make_metrics_df(
         successful_results: dict
 ):
     """
-    Extract metrics and create dataframe with NaN for failed calculations
+    Extract metrics and create dataframe with NaN for failed calculations.
     """
     data = []
     for cell_line in all_cell_lines:
@@ -225,9 +274,15 @@ def _make_metrics_df(
             result = successful_results[cell_line]
             data.append({
                 'cell_line': cell_line,
+                'threshold': result.get('threshold', np.nan),
                 'roc_auc': result['roc_auc'],
                 'pr_auc': result['pr_auc'],
                 'f1_score': result['f1_score'],
+                'balanced_accuracy': result.get('balanced_accuracy', np.nan),
+                'roc_auc_ci_low': result.get('roc_auc_ci_low', np.nan),
+                'roc_auc_ci_high': result.get('roc_auc_ci_high', np.nan),
+                'pr_auc_ci_low': result.get('pr_auc_ci_low', np.nan),
+                'pr_auc_ci_high': result.get('pr_auc_ci_high', np.nan),
                 'n_positive': result.get('n_positive', np.nan),
                 'n_negative': result.get('n_negative', np.nan),
                 'pred_min': result.get('pred_min', np.nan),
@@ -236,9 +291,15 @@ def _make_metrics_df(
             # Add NaN values for failed calculations
             data.append({
                 'cell_line': cell_line,
+                'threshold': np.nan,
                 'roc_auc': np.nan,
                 'pr_auc': np.nan,
                 'f1_score': np.nan,
+                'balanced_accuracy': np.nan,
+                'roc_auc_ci_low': np.nan,
+                'roc_auc_ci_high': np.nan,
+                'pr_auc_ci_low': np.nan,
+                'pr_auc_ci_high': np.nan,
                 'n_positive': np.nan,
                 'n_negative': np.nan,
                 'pred_min': np.nan,
@@ -253,6 +314,9 @@ def _collect_roc_metrics(
     y_score_dict,
     all_cell_lines: Optional[List[str]] = None,
     threshold: float = 0.01,
+    threshold_offsets: Optional[List[float]] = None,
+    n_bootstrap: Optional[int] = None,
+    ci_level: float = 0.95,
     verbose: bool = False
 ) -> Tuple[List[go.Scatter], List[go.Scatter], List[float], List[float], pandas.DataFrame, Dict]:
     """
@@ -263,6 +327,7 @@ def _collect_roc_metrics(
     rocauc_score_list = []
     prauc_score_list = []
     successful_results = {}  # Only successful calculations
+    sweep_results = {}       # Per-cell-line threshold sweep summaries
     # Use provided list of all cell lines (from config) if available, otherwise
     # fall back to the cell lines that were actually present in the experimental data
     if all_cell_lines is None:
@@ -270,6 +335,39 @@ def _collect_roc_metrics(
     else:
         # ensure it's a list copy
         all_cell_lines = list(all_cell_lines)
+
+    # Default small sweep around the provided threshold (multiplicative offsets)
+    if threshold_offsets is None:
+        threshold_offsets = [-2.0, -1.0, 0.0, 1.0, 2.0]
+
+    def _run_threshold_sweep(cell_line_name, y_true_vals, y_score_vals):
+        sweep = []
+        base = threshold
+        delta = abs(base) if base != 0 else 1e-6
+        for offset in threshold_offsets:
+            thr_candidate = base + offset * delta
+            metrics = _calculate_roc_metrics(
+                y_true_vals,
+                y_score_vals,
+                cell_line=cell_line_name,
+                threshold=thr_candidate,
+                compute_traces=False,
+                n_bootstrap=None,
+                ci_level=ci_level,
+            )
+            if metrics and metrics[0] is not None:
+                sweep.append({
+                    'cell_line': cell_line_name,
+                    'threshold': thr_candidate,
+                    'offset': offset,
+                    'roc_auc': metrics[0]['roc_auc'],
+                    'pr_auc': metrics[0]['pr_auc'],
+                    'f1_score': metrics[0]['f1_score'],
+                    'balanced_accuracy': metrics[0].get('balanced_accuracy'),
+                    'n_positive': metrics[0].get('n_positive'),
+                    'n_negative': metrics[0].get('n_negative'),
+                })
+        return sweep
 
     for cell_line, y_true in y_true_dict.items():
         y_score = y_score_dict.get(cell_line, None)
@@ -284,7 +382,10 @@ def _collect_roc_metrics(
             y_true,
             y_score,
             cell_line,
-            threshold
+            threshold=threshold,
+            compute_traces=True,
+            n_bootstrap=n_bootstrap,
+            ci_level=ci_level,
         )
         
         # Check if all three values are returned and not None
@@ -296,12 +397,21 @@ def _collect_roc_metrics(
             prauc_score_list.append(roc_results['pr_auc'])
             # Store successful results for DataFrame creation
             successful_results[cell_line] = roc_results
+            # Threshold sweep summary (optional)
+            sweep = _run_threshold_sweep(cell_line, y_true, y_score)
+            if sweep:
+                sweep_results[cell_line] = sweep
         else:
             if verbose:
                 print(f"ROC Metrics could not be calculated for {cell_line}")
     
     # Create metrics DataFrame including failed calculations with NaN
     metrics_df = _make_metrics_df(all_cell_lines, successful_results)
+
+    # Attach sweeps inside successful_results for downstream JSON export
+    for cl, sweeps in sweep_results.items():
+        if cl in successful_results:
+            successful_results[cl]['threshold_sweep'] = sweeps
 
     return traces_roc, traces_pr, rocauc_score_list, prauc_score_list, metrics_df, successful_results
 
@@ -326,7 +436,8 @@ def _save_curves_json(
         'roc_curves': [],
         'pr_curves': [],
         'rocauc_scores': rocauc_scores,
-        'prauc_scores': prauc_scores
+        'prauc_scores': prauc_scores,
+        'threshold_sweeps': []
     }
     
     # Extract ROC curve data from successful_results (which has fpr, tpr, etc.)
@@ -334,10 +445,24 @@ def _save_curves_json(
         roc_curve_data = {
             'cell_line': cell_line,
             'auc': float(result['roc_auc']),
-            'fpr': result['fpr'],  # already converted to list
-            'tpr': result['tpr'],  # already converted to list
+            'threshold': result.get('threshold'),
+            'n_positive': result.get('n_positive'),
+            'n_negative': result.get('n_negative'),
+            'balanced_accuracy': result.get('balanced_accuracy'),
+            'roc_auc_ci_low': result.get('roc_auc_ci_low'),
+            'roc_auc_ci_high': result.get('roc_auc_ci_high'),
+            'pr_auc_ci_low': result.get('pr_auc_ci_low'),
+            'pr_auc_ci_high': result.get('pr_auc_ci_high'),
+            'fpr': result.get('fpr', []),  # already converted to list
+            'tpr': result.get('tpr', []),  # already converted to list
         }
         curves_data['roc_curves'].append(roc_curve_data)
+        # Add sweep results if present
+        if 'threshold_sweep' in result:
+            curves_data['threshold_sweeps'].append({
+                'cell_line': cell_line,
+                'sweep': result['threshold_sweep']
+            })
     
     # Extract PR curve data from traces (since successful_results doesn't have precision/recall)
     for auc, trace in traces_pr:
@@ -366,29 +491,54 @@ def calculate_roc_metrics(
         df_predictions: pandas.DataFrame,
         threshold: float,
         cell_line_list: list,
-        verbose: bool = False,
-        output_path: Optional[Union[str, Path]] = None
+    threshold_offsets: Optional[List[float]] = None,
+    n_bootstrap: Optional[int] = None,
+    ci_level: float = 0.95,
+    verbose: bool = False,
+    output_path: Optional[Union[str, Path]] = None
 ) -> Tuple[Tuple, List[str]]:
     """
     Main function to calculate ROC metrics.
     """
+    # Clean cell_line_list to match the cleaned column names
+    cell_line_list_cleaned = [name.upper().replace('-', '') for name in cell_line_list]
+    
+    # Clean only the cell line column names in DataFrames (not metadata columns like 'Perturbation')
+    # Build a selective mapping that only renames columns matching cell_line_list
+    def clean_cell_columns(df, cell_lines_to_clean):
+        column_mapping = {}
+        for col in df.columns:
+            # Only rename columns that match the original cell line names
+            for original_name in cell_line_list:
+                if col == original_name:
+                    cleaned = original_name.upper().replace('-', '')
+                    column_mapping[col] = cleaned
+                    break
+        return df.rename(columns=column_mapping)
+    
+    df_predictions = clean_cell_columns(df_predictions, cell_line_list)
+    df_experiment = clean_cell_columns(df_experiment, cell_line_list)
+    
     # Only melt the predictions DataFrame (experimental is already in correct format)
-    df_pred = _melt_cell_lines(df_predictions, cell_line_list)
+    df_pred = _melt_cell_lines(df_predictions, cell_line_list_cleaned)
 
-    # Collect true scores (use full configured cell_line_list for matching)
+    # Collect true scores (use cleaned cell_line_list for matching)
     y_true_dict, y_score_dict, skipped_cell_lines = _collect_true_scores(
         df_experiment,
         df_pred,
-        cell_line_list=cell_line_list
+        cell_line_list=cell_line_list_cleaned
     )
 
-    # Collect roc metrics; pass the full cell_line_list so the final DataFrame
+    # Collect roc metrics; pass the cleaned cell_line_list so the final DataFrame
     # contains all requested cell lines (with NaNs where calculation failed)
     roc_metrics_results = _collect_roc_metrics(
         y_true_dict,
         y_score_dict,
-        all_cell_lines=cell_line_list,
+        all_cell_lines=cell_line_list_cleaned,
         threshold=threshold,
+        threshold_offsets=threshold_offsets,
+        n_bootstrap=n_bootstrap,
+        ci_level=ci_level,
         verbose=verbose
     )
     if verbose:

@@ -1,10 +1,9 @@
 # Ignore analysis results and build artifacts
-results/
 SYNCO.egg-info/
 *.egg-info/
 __pycache__/
-data/run_analysis/
-data/sample_raw/
-examples/
+examples/oneil/
+examples/trafikk/
+examples/trafikk_results.ipynb
 synco/features/__pycache__/
 synco/__pycache__/

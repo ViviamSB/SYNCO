@@ -151,6 +151,10 @@ def run_pipeline(
     compare = cfg["compare"]
     steps = cfg["steps"]
     threshold = float(cfg["compare"].get("threshold", 0.0))
+    threshold_offsets = cfg["compare"].get("threshold_offsets")
+    roc_bootstrap_n = cfg["compare"].get("roc_bootstrap_n")
+    roc_bootstrap_n = int(roc_bootstrap_n) if roc_bootstrap_n is not None else None
+    roc_bootstrap_ci = float(cfg["compare"].get("roc_bootstrap_ci", 0.95))
 
     # ------------------------------------------------------
     # Common paths normalization
@@ -363,7 +367,7 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 5: Synergy Comparison", verbose)
-            comparison_results, skipped_info, comparison_summary = compare_synergies(
+            comparison_results, skipped_info, comparison_summary, pair_details_df = compare_synergies(
                 df_experiment=exp_inhibitor_group_synergies_df,
                 df_prediction=pred_inhibitor_group_synergies_df,
                 synergy_column=compare.get("synergy_column", "synergy"),
@@ -373,10 +377,14 @@ def run_pipeline(
                 duplicate_strategy=compare.get("duplicate_strategy", "mean"),
                 output_path=output,
                 debug_items=compare.get("debug_items", None),
+                return_pair_details=True,
+                df_experiment_full=exp_full_df,
+                df_prediction_full=pred_full_df,
             )
             artifacts["synergy_comparison"] = comparison_results
             artifacts["skipped_info"] = skipped_info
             artifacts["comparison_summary"] = comparison_summary
+            artifacts["pair_details"] = pair_details_df
             echo_message("\nSynergy comparison completed successfully.", verbose)
     except KeyError as e:
         raise RuntimeError(f"Missing key in synergy comparison: {e}") from e
@@ -397,6 +405,9 @@ def run_pipeline(
                 df_predictions=pred_full_df,
                 cell_line_list=cell_lines,
                 threshold=threshold,
+                threshold_offsets=threshold_offsets,
+                n_bootstrap=roc_bootstrap_n,
+                ci_level=roc_bootstrap_ci,
                 verbose=verbose,
                 output_path=output
             )

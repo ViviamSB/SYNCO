@@ -104,6 +104,7 @@ def _process_predictions(
     inhibitor_df = df.set_index(['inhibitor_combination'])
     drugnames_df = df.set_index(['drug_combination'])
     
+    # Use original cell_line_list since DataFrame columns haven't been cleaned yet
     inhibitor_df = inhibitor_df.loc[:, inhibitor_df.columns.isin(cell_line_list)]
     if inhibitor_df.shape[1] == 0:
         raise ValueError("None of the cell_line_list columns matched columns in inhibitor_df.")
@@ -125,6 +126,7 @@ def _process_predictions(
     processed = [inhibitor_df, drugnames_df]
     for df in processed:
         df[synergy_column] = df[synergy_column] * -1
+        # Clean cell line names AFTER melting
         df[cell_line] = df[cell_line].astype(str).str.upper().str.replace("-", "")
 
     return inhibitor_df, drugnames_df
@@ -151,9 +153,15 @@ def _process_experimental(
         pandas.DataFrame: Processed DataFrame with mean synergy values.
     """
     df = clean_cell_names(df, column=cell_line)
+    tissue_map = None
+    if 'tissue' in df.columns:
+        tissue_map = df[[cell_line, 'tissue']].dropna(subset=[cell_line, 'tissue'])
+        tissue_map = tissue_map.drop_duplicates(subset=[cell_line]).set_index(cell_line)['tissue']
     
     if cell_line_list is not None:
-        df = df[df[cell_line].isin(cell_line_list)]
+        # Clean cell_line_list to match the cleaned DataFrame names
+        cell_line_list_cleaned = [name.upper().replace('-', '') for name in cell_line_list]
+        df = df[df[cell_line].isin(cell_line_list_cleaned)]
 
     # Group by inhibitor combination and cell line, and calculate mean synergy
     inhibitor_group_synergies_df = _group_by_inhibitor_combination(df, synergy_column, cell_line)
@@ -170,6 +178,11 @@ def _process_experimental(
         var_name=cell_line,
         value_name=synergy_column
     )
+
+    # Attach tissue annotation per cell line if available.
+    if tissue_map is not None and not tissue_map.empty:
+        inhibitor_group_synergies_df['tissue'] = inhibitor_group_synergies_df[cell_line].map(tissue_map)
+        drug_names_synergies_df['tissue'] = drug_names_synergies_df[cell_line].map(tissue_map)
     return inhibitor_group_synergies_df, drug_names_synergies_df
 
 #/////////////////////////////////////////////////////

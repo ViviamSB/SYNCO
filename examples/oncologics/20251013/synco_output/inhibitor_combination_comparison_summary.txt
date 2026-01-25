@@ -1,0 +1,12 @@
+Total comparisons: 255
+Global matches: 179
+Global matches %: 70.2
+Global mismatches: 76
+Global mismatches %: 29.8
+Global True Positives: 159
+Global True Negatives: 20
+Global False Positives: 58
+Global False Negatives: 18
+Global Accuracy %: 70.2
+Global Recall %: 89.83
+Global Precision %: 73.27

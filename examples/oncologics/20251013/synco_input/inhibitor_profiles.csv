@@ -1,0 +1,22 @@
+PD_profile,inhibitor_group,drug_name,mechanism
+PD_01,PIK3i,"['Alpelisib', 'Taselisib']",PI3K/AKT/MTOR
+PD_02,PIK3_MTORi,"['AZD-8055']",PI3K/AKT/MTOR
+PD_03,AKTi,"['Capivasertib', 'Ipatasertib', 'MK-2206']",PI3K/AKT/MTOR
+PD_04,RSKi,"['Carnosol', 'LJI308']",PI3K/AKT/MTOR
+PD_05,BRFi,"['Dabrafenib', 'Vemurafenib']",MAPK
+PD_06,PIK3_MTOR_ATMi,"['Dactolisib']",PI3K/AKT/MTOR
+PD_07,EGFR_BRAFi,"['Erlotinib']",RTK
+PD_08,mTORi,"['Everolimus', 'Rapamycin', 'Temsirolimus', 'Torin 1']",PI3K/AKT/MTOR
+PD_09,IGF1Ri,"['GSK1904529A', 'Linsitinib']",RTK
+PD_10,GSK3Bi,"['Laduviglusib']",WNT
+PD_11,EGFRi,"['Lapatinib', 'Neratinib']",RTK
+PD_12,Wee1i,"['MK-1775']",DNA repair
+PD_13,BCL2L1i,"['Navitoclax']",Apoptosis
+PD_14,PARPi,"['Niraparib', 'Olaparib']",DNA repair
+PD_15,BCL2i,"['Obatoclax']",Apoptosis
+PD_16,CyclinDi,"['Palbociclib']",Cell cycle
+PD_17,MAPKi,"['PF-3644022']",MAPK
+PD_18,CHEKi,"['PF-477736', 'Prexasertib']",DNA repair
+PD_19,KRASi,"['Sotorasib']",MAPK
+PD_20,MEKi,"['Trametinib']",MAPK
+PD_21,ERKi,"['Ulixertinib']",MAPK

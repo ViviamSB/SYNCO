@@ -375,6 +375,114 @@ def _calculate_confusion_matrix(
     return compared_df
 
 #/////////////////////////////////////////////////////
+def _build_pair_level_dataframe(
+        df_exp: pandas.DataFrame,
+        df_pred: pandas.DataFrame,
+        df_experiment_bool: pandas.DataFrame,
+        df_prediction_bool: pandas.DataFrame,
+        df_experiment_original: pandas.DataFrame,
+        df_prediction_original: pandas.DataFrame,
+        synergy_column: str = 'synergy',
+        df_experiment_full: Optional[pandas.DataFrame] = None,
+        df_prediction_full: Optional[pandas.DataFrame] = None,
+) -> pandas.DataFrame:
+    """
+    Build a long-form dataframe with one row per (combination, cell line) pair,
+    including the confusion-matrix label, original continuous values, and PD profiles.
+    """
+    aligned_pred = df_pred.reindex(index=df_exp.index, columns=df_exp.columns)
+    shared_columns = [c for c in df_exp.columns if c in aligned_pred.columns]
+    
+    if not shared_columns:
+        return pandas.DataFrame(columns=[
+            'inhibitor_combination', 'cell_line', 'tissue', 'pd_combination',
+            'exp_synergy', 'pred_synergy', 'exp_binary', 'pred_binary', 'confusion_matrix_value'
+        ])
+
+    # Build tissue map (prefer experimental, fallback to prediction)
+    tissue_map = {}
+    for source_df in [df_experiment_bool, df_prediction_bool]:
+        if 'tissue' in source_df.columns and not tissue_map:
+            tissue_map = source_df.dropna(subset=['cell_line', 'tissue']) \
+                .drop_duplicates('cell_line').set_index('cell_line')['tissue'].to_dict()
+            break
+
+    # Build synergy value maps using vectorized operations
+    exp_synergy_map = {}
+    pred_synergy_map = {}
+    
+    if synergy_column in df_experiment_original.columns and 'inhibitor_combination' in df_experiment_original.columns:
+        exp_synergy_map = df_experiment_original.set_index(['inhibitor_combination', 'cell_line'])[synergy_column].to_dict()
+    
+    if synergy_column in df_prediction_original.columns and 'inhibitor_combination' in df_prediction_original.columns:
+        pred_synergy_map = df_prediction_original.set_index(['inhibitor_combination', 'cell_line'])[synergy_column].to_dict()
+    
+    # Build PD profile map with bidirectional lookup
+    pd_profile_map = {}
+    if df_experiment_full is not None and 'Perturbation' in df_experiment_full.columns and 'inhibitor_combination' in df_experiment_full.columns:
+        for combi, cell, pert in zip(df_experiment_full['inhibitor_combination'], 
+                                      df_experiment_full['cell_line'], 
+                                      df_experiment_full['Perturbation']):
+            # Skip rows with NaN or non-string combinations
+            if pandas.isna(combi) or not isinstance(combi, str):
+                continue
+            pd_profile_map[(combi, cell)] = pert
+            # Add reversed combination for normalization handling
+            parts = combi.split(' + ')
+            if len(parts) == 2:
+                pd_profile_map[(f"{parts[1]} + {parts[0]}", cell)] = pert
+    elif 'PD_A' in df_experiment_original.columns and 'PD_B' in df_experiment_original.columns and 'inhibitor_combination' in df_experiment_original.columns:
+        for combi, cell, pd_a, pd_b in zip(df_experiment_original['inhibitor_combination'],
+                                             df_experiment_original['cell_line'],
+                                             df_experiment_original['PD_A'],
+                                             df_experiment_original['PD_B']):
+            pd_profile_map[(combi, cell)] = f"{pd_a}-{pd_b}"
+
+    # Build records
+    records = []
+    for combination in df_exp.index:
+        if combination not in aligned_pred.index:
+            continue
+        
+        exp_row = df_exp.loc[combination]
+        pred_row = aligned_pred.loc[combination]
+        
+        for cell_line in shared_columns:
+            exp_val = exp_row[cell_line]
+            pred_val = pred_row[cell_line]
+            
+            if pandas.isna(exp_val) or pandas.isna(pred_val):
+                continue
+            
+            exp_bool = bool(exp_val)
+            pred_bool = bool(pred_val)
+            
+            # Determine confusion matrix label
+            if exp_bool and pred_bool:
+                label = 'True Positive'
+            elif not exp_bool and not pred_bool:
+                label = 'True Negative'
+            elif exp_bool:
+                label = 'False Negative'
+            else:
+                label = 'False Positive'
+            
+            key = (combination, cell_line)
+            records.append({
+                'inhibitor_combination': combination,
+                'cell_line': cell_line,
+                'tissue': tissue_map.get(cell_line),
+                'pd_combination': pd_profile_map.get(key),
+                'exp_synergy': exp_synergy_map.get(key),
+                'pred_synergy': pred_synergy_map.get(key),
+                'exp_binary': exp_bool,
+                'pred_binary': pred_bool,
+                'confusion_matrix_value': label,
+            })
+
+    return pandas.DataFrame.from_records(records)
+
+#/////////////////////////////////////////////////////
 def _calculate_accuracy_recall_precision(
         df_compared: pandas.DataFrame,        
 ) -> pandas.DataFrame:
@@ -604,7 +712,10 @@ def compare_synergies(
         duplicate_strategy: str = 'mean', # 'mean' or 'ignore'
         output_path: Optional[Union[str, Path]] = None,
         debug_items: Optional[list] = None,
-) -> Tuple[pandas.DataFrame, Dict]:
+        return_pair_details: bool = True,
+        df_experiment_full: Optional[pandas.DataFrame] = None,
+        df_prediction_full: Optional[pandas.DataFrame] = None,
+) -> Union[Tuple[pandas.DataFrame, Dict, Dict], Tuple[pandas.DataFrame, Dict, Dict, pandas.DataFrame]]:
     """
     Compare experimental and predicted synergies values across different cell lines or inhibitor combinations.
     Collect the number of matches and mismatches, and calculate the confusion matrix.
@@ -619,9 +730,11 @@ def compare_synergies(
         analysis_mode (str): Type of comparison ('cell_line' or 'inhibitor_combination').
         duplicate_strategy (str): How to handle duplicates ('mean' or 'ignore').
         output_path (Optional[Union[str, Path]]): Path to save output files.
+        return_pair_details (bool): If True, also return a long-form pair-level dataframe.
         
     Returns:
         Tuple[pandas.DataFrame, Dict]: DataFrame containing the comparison results and a dictionary with skipped items info.
+        If return_pair_details is True, a fourth element (pair_details_df) is returned.
     """
     # Normalize inhibitor combinations to handle bidirectional combinations (e.g., A+B vs B+A)
     df_experiment = _normalize_combinations_in_df(df_experiment, 'inhibitor_combination')
@@ -630,6 +743,10 @@ def compare_synergies(
     # Clean cell line names
     df_experiment = clean_cell_names(df_experiment)
     df_prediction = clean_cell_names(df_prediction)
+    
+    # Also clean the cell_line_list to match the cleaned DataFrame names
+    # (e.g., "HT-115" → "HT115", ensuring consistent matching)
+    cell_line_list = [name.upper().replace('-', '') for name in cell_line_list]
 
     # Create boolean DataFrames for both experimental and predicted synergies
     df_experiment_bool = _make_boolean_df(df_experiment, cell_line_list, synergy_column, threshold)
@@ -738,6 +855,17 @@ def compare_synergies(
     # Calculate accuracy, recall, and precision
     results_df = _calculate_accuracy_recall_precision(results_df)
 
+    # Build per-pair details if requested or if we need to save them
+    pair_details_df = None
+    if return_pair_details or output_path:
+        pair_details_df = _build_pair_level_dataframe(
+            df_exp, df_pred, 
+            df_experiment_bool, df_prediction_bool,
+            df_experiment, df_prediction,
+            synergy_column,
+            df_experiment_full, df_prediction_full
+        )
+
     # Print final summary with global results and get summary dict (no duplicated computation)
     try:
         summary_dict = _print_comparison_summary(analysis_mode, results_df=results_df)
@@ -760,5 +888,10 @@ def compare_synergies(
 
     if output_path:
         save_file(results_df, Path(output_path) / f"{analysis_mode}_comparison_results.csv", file_type='csv')
+        if pair_details_df is not None:
+            save_file(pair_details_df, Path(output_path) / f"{analysis_mode}_pair_details.csv", file_type='csv')
+
+    if return_pair_details:
+        return results_df, skipped_info, summary_dict, pair_details_df
 
     return results_df, skipped_info, summary_dict

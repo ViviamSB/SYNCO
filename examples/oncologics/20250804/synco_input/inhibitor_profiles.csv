@@ -1,0 +1,13 @@
+PD_profile,inhibitor_group,drug_name,mechanism
+PD_01,AKTi,"['Capivasertib', 'Ipatasertib']",PI3K/AKT/MTOR
+PD_02,CHEKi,"['PF-477736', 'Prexasertib']",DNA repair
+PD_03,mTORi,"['Everolimus', 'AZD-8055', 'Torin 1']",PI3K/AKT/MTOR
+PD_04,EGFRi,"['Lapatinib', 'Neratinib']",RTK
+PD_05,PARPi,"['Niraparib', 'Olaparib']",DNA repair
+PD_06,Wee1i,"['MK-1775']",DNA repair
+PD_07,MAPKi,"['PF-3644022']",MAPK
+PD_08,CyclinDi,"['Palbociclib']",Cell cycle
+PD_09,BCL2L1i,"['Navitoclax']",Apoptosis
+PD_10,BCL2i,"['Obatoclax']",Apoptosis
+PD_11,ERKi,"['Ulixertinib']",MAPK
+PD_12,Chemo,"['oxaliplatin', 'SN-38']",Chemotherapy

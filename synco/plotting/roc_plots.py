@@ -49,6 +49,8 @@ def _load_roc_inputs(results_dir: str) -> Dict[str, Any]:
             'traces_pr': [],
             'rocauc_scores': [],
             'prauc_scores': [],
+            'roc_meta': [],
+            'threshold_sweeps': [],
             'results_dir': str(results_dir)
         }
     
@@ -57,6 +59,8 @@ def _load_roc_inputs(results_dir: str) -> Dict[str, Any]:
         'traces_pr': roc_data.get('traces_pr', []),
         'rocauc_scores': roc_data.get('rocauc_scores', []),
         'prauc_scores': roc_data.get('prauc_scores', []),
+        'roc_meta': roc_data.get('roc_meta', []),
+        'threshold_sweeps': roc_data.get('threshold_sweeps', []),
         'results_dir': str(results_dir)
     }
 
@@ -87,7 +91,8 @@ def plot_curves(
         metric='ROC', 
         width=800, 
         height=800,
-        output=None
+    output=None,
+    meta: Optional[Dict[str, Dict[str, Any]]] = None
         ):
     
     fig = go.Figure()
@@ -97,6 +102,33 @@ def plot_curves(
 
     # Add sorted traces to the figure
     for _, trace in sorted_traces:
+        cl_name = trace.name.split(' (')[0]
+        md = meta.get(cl_name, {}) if meta else {}
+        custom = [[
+            md.get('threshold', None),
+            md.get('balanced_accuracy', None),
+            md.get('n_positive', None),
+            md.get('n_negative', None),
+            md.get('roc_auc_ci_low', None),
+            md.get('roc_auc_ci_high', None),
+            md.get('pr_auc_ci_low', None),
+            md.get('pr_auc_ci_high', None),
+        ] for _ in trace.x]
+        if custom:
+            trace.update(
+                customdata=custom,
+                hovertemplate=(
+                    "<b>%{text}</b><br>"
+                    "x=%{x:.3f}, y=%{y:.3f}<br>"
+                    "threshold=%{customdata[0]}<br>"
+                    "BalAcc=%{customdata[1]}<br>"
+                    "Npos=%{customdata[2]} | Nneg=%{customdata[3]}<br>"
+                    "ROC CI=[%{customdata[4]}, %{customdata[5]}]<br>"
+                    "PR CI=[%{customdata[6]}, %{customdata[7]}]"
+                    "<extra></extra>"
+                ),
+                text=[cl_name]*len(trace.x)
+            )
         fig.add_trace(trace)
 
     # Add average auc_score annotation
@@ -439,7 +471,8 @@ def make_roc_plots(
         show: bool = False,
         tissue: str = "all",
         width: int = 800,
-        height: int = 800
+    height: int = 800,
+    plot_sweeps: bool = True
 ) -> Tuple[Optional[go.Figure], Optional[go.Figure]]:
     """
     High-level entrypoint: load -> prepare -> plot ROC and PR curves.
@@ -477,6 +510,7 @@ def make_roc_plots(
     
     # Plot ROC curves
     logging.info("Generating ROC curve plot...")
+    meta_map = {m.get('cell_line'): m for m in roc_data.get('roc_meta', []) if m.get('cell_line')}
     plot_curves(
         traces=roc_data['traces_roc'],
         auc_score_list=roc_data['rocauc_scores'],
@@ -484,7 +518,8 @@ def make_roc_plots(
         metric='ROC',
         width=width,
         height=height,
-        output=plots_dir if show else plots_dir
+        output=plots_dir if show else plots_dir,
+        meta=meta_map
     )
     
     # Plot PR curves
@@ -496,9 +531,82 @@ def make_roc_plots(
         metric='PR',
         width=width,
         height=height,
-        output=plots_dir if show else plots_dir
+        output=plots_dir if show else plots_dir,
+        meta=meta_map
     )
+
+    # Threshold sweep plot (offset vs metric)
+    if plot_sweeps and roc_data.get('threshold_sweeps'):
+        try:
+            plot_threshold_sweeps(
+                sweeps=roc_data['threshold_sweeps'],
+                plots_dir=plots_dir,
+                metric='roc_auc',
+                width=width,
+                height=height//2,
+                show=show
+            )
+        except Exception as e:
+            logging.warning(f"Failed to plot threshold sweeps: {e}")
     
     logging.info(f"ROC/PR curve plots saved to: {plots_dir}")
     
     return None  # Figures are shown/saved by plot_curves
+
+
+def plot_threshold_sweeps(
+    sweeps: list,
+    plots_dir: Path,
+    metric: str = 'roc_auc',
+    width: int = 800,
+    height: int = 400,
+    show: bool = False
+):
+    """Plot threshold offset sweeps per cell line.
+
+    Args:
+        sweeps: List of {cell_line, sweep: [{offset, threshold, roc_auc, pr_auc, f1_score, balanced_accuracy}]}
+        plots_dir: Where to save the plot
+        metric: Which metric to show on y-axis ('roc_auc', 'pr_auc', 'f1_score', 'balanced_accuracy')
+    """
+    metric = metric or 'roc_auc'
+    fig = go.Figure()
+    for entry in sweeps:
+        cl = entry.get('cell_line', 'cell_line')
+        points = entry.get('sweep', []) or []
+        if not points:
+            continue
+        offsets = [p.get('offset') for p in points]
+        values = [p.get(metric) for p in points]
+        thresholds = [p.get('threshold') for p in points]
+        # Highlight base offset 0 if present
+        marker = dict(size=10)
+        fig.add_trace(
+            go.Scatter(
+                x=offsets,
+                y=values,
+                mode='lines+markers',
+                name=cl,
+                text=[f"thr={t}" for t in thresholds],
+                hovertemplate="offset=%{x}<br>value=%{y:.3f}<br>%{text}<extra></extra>",
+                marker=marker
+            )
+        )
+
+    fig.update_layout(
+        title=f"Threshold sweep ({metric})",
+        xaxis_title="Offset (multipliers around base threshold)",
+        yaxis_title=metric,
+        width=width,
+        height=height,
+    )
+
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    fig.write_html(plots_dir / f"threshold_sweep_{metric}.html")
+    try:
+        fig.write_image(plots_dir / f"threshold_sweep_{metric}.svg", scale=2)
+    except Exception:
+        pass
+    if show:
+        fig.show()
+    return fig

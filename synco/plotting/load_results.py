@@ -149,6 +149,7 @@ def _load_main_results(results_dir: str) -> dict:
 				curves_data = json.load(fh)
 			# Reconstruct ROC traces
 			traces_roc = []
+			roc_meta = []
 			for curve in curves_data.get('roc_curves', []):
 				trace = go.Scatter(
 					x=curve.get('fpr', []),
@@ -157,6 +158,18 @@ def _load_main_results(results_dir: str) -> dict:
 					mode='lines'
 				)
 				traces_roc.append((float(curve.get('auc', 0.0)), trace))
+				roc_meta.append({
+					'cell_line': curve.get('cell_line', ''),
+					'threshold': curve.get('threshold'),
+					'n_positive': curve.get('n_positive'),
+					'n_negative': curve.get('n_negative'),
+					'mcc': curve.get('mcc'),
+					'balanced_accuracy': curve.get('balanced_accuracy'),
+					'roc_auc_ci_low': curve.get('roc_auc_ci_low'),
+					'roc_auc_ci_high': curve.get('roc_auc_ci_high'),
+					'pr_auc_ci_low': curve.get('pr_auc_ci_low'),
+					'pr_auc_ci_high': curve.get('pr_auc_ci_high'),
+				})
 			# Reconstruct PR traces
 			traces_pr = []
 			for curve in curves_data.get('pr_curves', []):
@@ -168,11 +181,15 @@ def _load_main_results(results_dir: str) -> dict:
 				)
 				traces_pr.append((float(curve.get('auc', 0.0)), trace))
 
+			threshold_sweeps = curves_data.get('threshold_sweeps', []) or []
+
 			roc_traces_data = {
 				'traces_roc': traces_roc,
 				'traces_pr': traces_pr,
 				'rocauc_scores': curves_data.get('rocauc_scores', []),
 				'prauc_scores': curves_data.get('prauc_scores', []),
+				'roc_meta': roc_meta,
+				'threshold_sweeps': threshold_sweeps,
 			}
 		except Exception as e:
 			logging.warning(f"Failed to load ROC/PR curves from {roc_curves_path}: {e}")
