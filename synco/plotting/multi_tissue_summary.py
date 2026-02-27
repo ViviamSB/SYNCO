@@ -138,7 +138,7 @@ def load_all_tissue_summaries(
             try:
                 roc_df = pd.read_csv(roc_metrics_csv)
                 
-                # Expected columns: cell_line, roc_auc, pr_auc (and possibly others)
+                # Expected columns: cell_line, roc_auc, pr_auc, f1 (and possibly others)
                 if 'cell_line' in roc_df.columns:
                     # Flatten ROC data with tissue column
                     for _, row in roc_df.iterrows():
@@ -146,13 +146,15 @@ def load_all_tissue_summaries(
                             'tissue': tissue_name,
                             'cell_line': row.get('cell_line', ''),
                             'roc_auc_score': row.get('roc_auc', np.nan),
-                            'pr_auc_score': row.get('pr_auc', np.nan)
+                            'pr_auc_score': row.get('pr_auc', np.nan),
+                            'f1_score': row.get('f1_score', np.nan)
                         })
                     
                     # Count missing ROC data
                     n_total = len(roc_df)
                     n_missing_roc = roc_df['roc_auc'].isna().sum() if 'roc_auc' in roc_df.columns else n_total
                     n_missing_pr = roc_df['pr_auc'].isna().sum() if 'pr_auc' in roc_df.columns else n_total
+                    n_missing_f1 = roc_df['f1_score'].isna().sum() if 'f1_score' in roc_df.columns else n_total
                     
                     missing_roc_records.append({
                         'tissue': tissue_name,
@@ -254,6 +256,13 @@ def plot_tissue_rings(
         # Add Accuracy and Precision text below ring
         accuracy_val = row.get('Accuracy', 0.0)
         precision_val = row.get('Precision', 0.0)
+        tp_val = row.get('TP', 0)
+        tn_val = row.get('TN', 0)
+        fp_val = row.get('FP', 0)
+        fn_val = row.get('FN', 0)
+        tpr = (tp_val / (tp_val + fn_val) * 100) if (tp_val + fn_val) > 0 else 0.0
+        tnr = (tn_val / (tn_val + fp_val) * 100) if (tn_val + fp_val) > 0 else 0.0
+        balanced_accuracy_val = (tpr + tnr) / 2
         n_cell_lines = int(row.get('n_cell_lines', 0))
         
         # Position text below the ring (using axis coordinates)
@@ -261,7 +270,9 @@ def plot_tissue_rings(
                 ha='center', va='center', fontsize=11, transform=ax.transData)
         ax.text(0, -1.4, f"Precision: {precision_val:.1f}%", 
                 ha='center', va='center', fontsize=11, transform=ax.transData)
-        ax.text(0, -1.6, f"N cell lines: {n_cell_lines}", 
+        ax.text(0, -1.6, f"Balanced accuracy: {balanced_accuracy_val:.1f}%", 
+            ha='center', va='center', fontsize=11, transform=ax.transData)
+        ax.text(0, -1.8, f"N cell lines: {n_cell_lines}", 
                 ha='center', va='center', fontsize=10, transform=ax.transData,
                 style='italic', color='#555555')
     
@@ -338,6 +349,9 @@ def plot_aggregate_ring(
     accuracy = (total_match / total * 100) if total > 0 else 0.0
     recall = (total_tp / (total_tp + total_fn) * 100) if (total_tp + total_fn) > 0 else 0.0
     precision = (total_tp / (total_tp + total_fp) * 100) if (total_tp + total_fp) > 0 else 0.0
+    tpr = (total_tp / (total_tp + total_fn) * 100) if (total_tp + total_fn) > 0 else 0.0
+    tnr = (total_tn / (total_tn + total_fp) * 100) if (total_tn + total_fp) > 0 else 0.0
+    balanced_accuracy = (tpr + tnr) / 2
     
     # Create aggregate row
     agg_row = pd.Series({
@@ -373,9 +387,10 @@ def plot_aggregate_ring(
     # Add metrics text below ring
     fig.text(0.5, 0.18, f"Accuracy: {accuracy:.1f}%", fontsize=13, ha='center', va='center')
     fig.text(0.5, 0.14, f"Precision: {precision:.1f}%", fontsize=13, ha='center', va='center')
-    fig.text(0.5, 0.10, f"Total cell lines: {total_cell_lines} (across {n_tissues} tissues)", 
+    fig.text(0.5, 0.10, f"Balanced accuracy: {balanced_accuracy:.1f}%", fontsize=13, ha='center', va='center')
+    fig.text(0.5, 0.06, f"Total cell lines: {total_cell_lines} (across {n_tissues} tissues)", 
              fontsize=11, ha='center', va='center', style='italic', color='#555555')
-    fig.text(0.5, 0.06, f"Total comparisons: {total_comparisons:,}", 
+    fig.text(0.5, 0.03, f"Total comparisons: {total_comparisons:,}", 
              fontsize=11, ha='center', va='center', style='italic', color='#555555')
     
     plt.title('Modelling Performance Across All Tissues', 
@@ -698,7 +713,7 @@ def make_multi_tissue_plots(
     if not roc_auc_df.empty:
         logging.info("Generating tissue ROC/PR/F1 box & bar plots...")
         try:
-            figs_rocprf1 = plot_tissue_roc_pr_f1_boxplots(
+            figs_rocprf1 = plot_tissue_roc_pr_f1(
                 roc_auc_df,
                 plots_dir=plots_dir,
                 plot_name_prefix='tissue_roc_pr_f1',
@@ -794,11 +809,12 @@ def plot_tissue_metric_boxplots(
         # Mean/Median annotations beneath each metric
         mean_value = df[metric].mean()
         median_value = df[metric].median()
+        std_value = df[metric].std()
         fig_box.add_annotation(
             x=metric,
             yref='paper',
             y=-0.2,
-            text=f"Mean: {mean_value:.1f}%" + f"<br>Median: {median_value:.1f}%",
+            text=f"Mean: {mean_value:.1f}%" + f"<br>Median: {median_value:.1f}%" + f"<br>Std: {std_value:.1f}%",
             showarrow=False,
             bgcolor='rgba(255, 255, 255, 0.8)',
             bordercolor=metric_colors[metric_list.index(metric)],
@@ -863,18 +879,30 @@ def plot_tissue_metric_boxplots(
 #----------------------------------------------------------------------
 # PLOT - TISSUE BOX/BAR FOR ROC/PR/F1
 #----------------------------------------------------------------------
-def plot_tissue_roc_pr_f1_boxplots(
+def plot_tissue_roc_pr_f1(
     roc_auc_df: pd.DataFrame,
     plots_dir: Optional[str] = None,
     plot_name_prefix: str = 'tissue_roc_pr_f1',
-    show: bool = False
+    figsize_box: Tuple[int, int] = (700, 800),
+    figsize_bar: Tuple[int, int] = (1200, 500),
+    figsize_heatmap: Tuple[int, int] = (800, 600),
+    show: bool = False,
+    tissue_color: bool = False
 ):
-    """Create box plots and grouped bar plots for F1 Score / AUC-ROC / AUC-PR across tissues.
+    """Create box plots, grouped bar plots, and heatmap for F1 Score / AUC-ROC / AUC-PR across tissues.
 
     Expects `roc_auc_df` with columns: ['tissue','cell_line','roc_auc_score','pr_auc_score'] and optionally 'f1_score'.
-    Returns a dict with keys {'box': fig_box, 'bar': fig_bar}.
+    Returns a dict with keys {'box': fig_box, 'bar': fig_bar, 'heatmap': fig_heatmap}.
+    
+    Args:
+        roc_auc_df: DataFrame with tissue-level ROC/PR/F1 metrics
+        plots_dir: Directory to save plots
+        plot_name_prefix: Base filename prefix
+        show: Whether to display figures
+        tissue_color: If True, color box plot points by tissue
     """
     import plotly.graph_objects as go
+    import plotly.express as px
 
     req = {'tissue', 'cell_line'}
     if not req.issubset(set(roc_auc_df.columns)):
@@ -890,7 +918,7 @@ def plot_tissue_roc_pr_f1_boxplots(
             rename_map[col] = 'roc_auc_score'
         if lc in ('pr_auc', 'auc-pr', 'pr_auc_score'):
             rename_map[col] = 'pr_auc_score'
-        if lc in ('f1 score', 'f1_score'):
+        if lc in ('f1', 'f1-score', 'f1 score', 'f1_score', 'f1score'):
             rename_map[col] = 'f1_score'
     if rename_map:
         df = df.rename(columns=rename_map)
@@ -914,27 +942,77 @@ def plot_tissue_roc_pr_f1_boxplots(
         df[m] = pd.to_numeric(df[m], errors='coerce')
     df = df.dropna(subset=metrics, how='all')
 
+    # Build tissue color map for point coloring (if tissue column exists and tissue_color=True)
+    use_tissue_colors = tissue_color and 'tissue' in df.columns and df['tissue'].notna().any()
+    if use_tissue_colors:
+        try:
+            tissue_values = df['tissue'].astype(str)
+            tissue_list = sorted(tissue_values.dropna().unique())
+            palette = px.colors.qualitative.Safe + px.colors.qualitative.Set2 + px.colors.qualitative.Dark24
+            color_map = {t: palette[i % len(palette)] for i, t in enumerate(tissue_list)}
+            point_colors = tissue_values.map(color_map).tolist()  # Convert to list for Plotly
+        except Exception:
+            logging.warning('Failed to create tissue color map, using default colors')
+            use_tissue_colors = False
+            point_colors = None
+    else:
+        point_colors = None
+
     # Box plots
     fig_box = go.Figure()
     for m, label, c in zip(metrics, labels, colors):
-        fig_box.add_trace(
-            go.Box(
-                y=df[m],
-                name=label,
-                marker_color=c,
-                boxpoints='all',
-                boxmean=True,
-                hoverinfo='y+text',
-                hovertext=df.get('tissue', '')
+        # Count valid (non-NaN) data points for this metric
+        n_cell_lines = df[m].notna().sum()
+
+        # For tissue coloring, pass color array directly; otherwise use single color
+        if use_tissue_colors and point_colors is not None:
+            fig_box.add_trace(
+                go.Box(
+                    y=df[m],
+                    name=label,
+                    marker=dict(
+                        size=6,
+                        opacity=0.7,
+                        color=point_colors  # Array of colors per point
+                    ),
+                    boxpoints='all',
+                    boxmean=True,
+                    hoverinfo='y+text',
+                    hovertext=df.get('tissue', '') if 'tissue' in df.columns else ''
+                )
             )
+        else:
+            fig_box.add_trace(
+                go.Box(
+                    y=df[m],
+                    name=label,
+                    marker=dict(size=6, opacity=0.7),
+                    marker_color=c,  # Single color for entire trace
+                    boxpoints='all',
+                    boxmean=True,
+                    hoverinfo='y+text',
+                    hovertext=df.get('tissue', '') if 'tissue' in df.columns else ''
+                )
+            )
+        # Add cell line count annotation
+        fig_box.add_annotation(
+            x=label,
+            yref='paper',
+            y=-0.08,  # Between plot (0) and mean/median (-0.2)
+            text=f"n = {n_cell_lines}",
+            showarrow=False,
+            font=dict(size=13, color='#666666'),
+            align='center'
         )
+
         mean_value = df[m].mean()
         median_value = df[m].median()
+        std_value = df[m].std()
         fig_box.add_annotation(
             x=label,
             yref='paper',
             y=-0.2,
-            text=f"Mean: {mean_value:.2f}<br>Median: {median_value:.2f}",
+            text=f"Mean: {mean_value:.2f}<br>Median: {median_value:.2f}<br>Std: {std_value:.2f}",
             showarrow=False,
             bgcolor='rgba(255, 255, 255, 0.8)',
             bordercolor=c,
@@ -944,10 +1022,10 @@ def plot_tissue_roc_pr_f1_boxplots(
         )
 
     fig_box.update_layout(
-        title_text="Summary of ROC/PR/F1 across tissues",
+        title_text="Summary of ROC/PR/F1 across cell lines",
         font=dict(size=15),
-        height=800,
-        width=700,
+        height=figsize_box[1],
+        width=figsize_box[0],
         margin=dict(l=10, r=10, t=50, b=150)
     )
     fig_box.update_yaxes(title_text='Score')
@@ -956,7 +1034,7 @@ def plot_tissue_roc_pr_f1_boxplots(
     means = df.groupby('tissue')[metrics].mean()
     # Choose sort key: prefer ROC, else first metric present
     sort_key = 'roc_auc_score' if 'roc_auc_score' in means.columns else metrics[0]
-    means = means.sort_values(by=sort_key, ascending=False).round(3)
+    means = means.sort_values(by=sort_key, ascending=False).round(1)
 
     fig_bar = go.Figure()
     for m, label, c in zip(metrics, labels, colors):
@@ -969,34 +1047,81 @@ def plot_tissue_roc_pr_f1_boxplots(
                 name=label,
                 marker_color=c,
                 text=means[m],
-                textposition='outside'
+                textposition='outside',
+                textfont=dict(size=12)
             )
         )
+
     fig_bar.update_layout(
         title_text="Mean F1 / AUC-ROC / AUC-PR by tissue",
         barmode='group',
-        bargap=0.3,
-        bargroupgap=0.1,
-        height=500,
-        width=1200,
-        font=dict(size=14),
-        margin=dict(l=10, r=10, t=40, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1)
+        bargap=0.4,
+        bargroupgap=0.2,
+        height=figsize_bar[1],
+        width=figsize_bar[0],
+        font=dict(size=12),
+        margin=dict(l=10, r=10, t=40, b=60),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="right", x=1)
     )
     fig_bar.update_xaxes(title_text='Tissue')
     fig_bar.update_yaxes(title_text='Score')
+
+    # Heatmap by tissue (mean per tissue) for F1 / AUC-ROC / AUC-PR
+    heatmap_order = [
+        ('f1_score', 'F1 Score'),
+        ('roc_auc_score', 'AUC-ROC'),
+        ('pr_auc_score', 'AUC-PR')
+    ]
+    heatmap_metrics = [m for m, _ in heatmap_order if m in means.columns]
+    heatmap_labels = [label for m, label in heatmap_order if m in means.columns]
+
+    fig_heatmap = go.Figure()
+    if heatmap_metrics:
+        heatmap_df = means[heatmap_metrics].copy()
+        
+        # Compute cell line counts per tissue
+        tissue_counts = df.groupby('tissue')['cell_line'].nunique().sort_index()
+        
+        # Create y-axis labels with cell line counts: "Tissue (n=count)"
+        y_labels = [f"{tissue.capitalize()} (n={tissue_counts.get(tissue, 0)})" 
+                    for tissue in heatmap_df.index]
+        
+        fig_heatmap = go.Figure(
+            data=go.Heatmap(
+                z=heatmap_df.values,
+                x=heatmap_labels,
+                y=y_labels,
+                colorscale='RdBu',
+                colorbar=dict(title='Score'),
+                zmin=0,
+                zmax=1
+            )
+        )
+        fig_heatmap.update_layout(
+            title_text='Predictive performance by tissue',
+            height=figsize_heatmap[1],
+            width=figsize_heatmap[0],
+            font=dict(size=14),
+            margin=dict(l=150, r=50, t=80, b=50)
+        )
+        fig_heatmap.update_xaxes(title_text='Metric')
+        fig_heatmap.update_yaxes(title_text='Tissue')
 
     # Save figures
     if plots_dir:
         os.makedirs(plots_dir, exist_ok=True)
         save_fig(fig_box, plots_dir, f"{plot_name_prefix}_boxplot", formats=['html','png'], fig_type='plotly')
         save_fig(fig_bar, plots_dir, f"{plot_name_prefix}_barplot", formats=['html','png'], fig_type='plotly')
+        if heatmap_metrics:
+            save_fig(fig_heatmap, plots_dir, f"{plot_name_prefix}_heatmap", formats=['html','png'], fig_type='plotly')
 
     if show:
         try:
             fig_box.show()
             fig_bar.show()
+            if heatmap_metrics:
+                fig_heatmap.show()
         except Exception:
             pass
 
-    return {'box': fig_box, 'bar': fig_bar}
+    return {'box': fig_box, 'bar': fig_bar, 'heatmap': fig_heatmap}

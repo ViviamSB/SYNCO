@@ -479,6 +479,9 @@ def plot_ring_summary(results_or_df,
 	Accuracy = (Match / Total * 100) if Total > 0 else 0.0
 	Recall = (TP / (TP + FN) * 100) if (TP + FN) > 0 else 0.0
 	Precision = (TP / (TP + FP) * 100) if (TP + FP) > 0 else 0.0
+	TPR = (TP / (TP + FN) * 100) if (TP + FN) > 0 else 0.0
+	TNR = (TN / (TN + FP) * 100) if (TN + FP) > 0 else 0.0
+	Balanced_Accuracy = (TPR + TNR) / 2
 
 	# Build figure with two concentric donuts using centralized helper
 	fig, ax = plt.subplots(figsize=(7, 6))
@@ -505,6 +508,11 @@ def plot_ring_summary(results_or_df,
 	# Accuracy / Precision box text
 	fig.text(0.5, 0.06, f"Accuracy: {Accuracy:.1f}%", fontsize=12, ha='center', va='center')
 	fig.text(0.5, 0.02, f"Precision: {Precision:.1f}%", fontsize=12, ha='center', va='center')
+	fig.text(0.5, -0.02, f"Balanced accuracy: {Balanced_Accuracy:.1f}%", fontsize=12, ha='center', va='center')
+	fig.text(0.5, -0.06, f"Total cell lines: {len(comp_norm)}", 
+			 fontsize=10, ha='center', va='center', style='italic', color='#555555')
+	fig.text(0.5, -0.10, f"Total comparisons: {Total:,}", 
+			 fontsize=10, ha='center', va='center', style='italic', color='#555555')
 
 	plt.title(f'Modelling predicted performance', fontsize=14)
 	plt.tight_layout()

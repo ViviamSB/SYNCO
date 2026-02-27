@@ -106,11 +106,15 @@ def resolve_cell_lines(
         cell_lines = []
         
         # Get all directories in pipeline_runs_path
+        skip_dirs = {
+            'drabme_out', 'results', 'analysis', 'logs', 'config',
+            'run_analysis', 'run-analysis', 'runanalysis'
+        }
         for entry in os.listdir(pipeline_runs_path):
             entry_path = os.path.join(pipeline_runs_path, entry)
             if os.path.isdir(entry_path):
-                # Skip common non-cell-line directories
-                if entry.lower() not in ['drabme_out', 'results', 'analysis', 'logs', 'config']:
+                # Skip common non-cell-line directories (case-insensitive)
+                if entry.strip().lower() not in skip_dirs:
                     cell_lines.append(entry)
         
         # Also check for drabme_out subfolder (common in DrugLogics pipelines)

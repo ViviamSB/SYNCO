@@ -223,6 +223,15 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     if show:
         fig.show()
 
+    # HEATMAP - F1/AUC (exclude cell lines with missing metric values)
+    cm_df_f1 = classification_metrics_df.dropna(subset=['F1 Score', 'AUC-ROC', 'AUC-PR']).sort_values(by='F1 Score', ascending=True)
+    if not cm_df_f1.empty:
+        fig = go.Figure(data=go.Heatmap(z=cm_df_f1[['F1 Score', 'AUC-ROC', 'AUC-PR']].values, x=['F1 Score', 'AUC-ROC', 'AUC-PR'], y=cm_df_f1.index, colorscale='RdBu', colorbar=dict(title='Score'), zmin=0, zmax=1))
+        fig.update_layout(title_text="F1/AUC metrics by cell line", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
+        if show:
+            fig.show()
+        save_fig(fig, plots_path, 'heatmap_f1_auc_metrics', formats=['html', 'png'], fig_type='plotly')
+
     # BOX PLOTS for Accuracy/Recall/Precision
     fig = go.Figure()
     classification_metrics_scaled_df = classification_metrics_scaled_df.sort_values(by=metric_list1[0], ascending=False)
@@ -231,7 +240,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     for metric in metric_list1:
         mean_value = classification_metrics_scaled_df[metric].mean().round(0)
         median_value = classification_metrics_scaled_df[metric].median().round(0)
-        fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
+        std_value = classification_metrics_scaled_df[metric].std().round(2)
+        n_cell_lines = classification_metrics_scaled_df[metric].notna().sum()
+        fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
+        fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of performance metrics across cell lines",
         font=dict(size=15), height=800, width=600, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
@@ -243,12 +255,17 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     fig = go.Figure()
     classification_metrics_scaled_df = classification_metrics_scaled_df.sort_values(by=metric_list2[0], ascending=False)
     for metric in metric_list2:
+        # Count valid (non-NaN) data points for this metric
+        n_cell_lines = classification_metrics_scaled_df[metric].notna().sum()
         fig.add_trace(go.Box(y=classification_metrics_scaled_df[metric], name=metric, marker_color=metric_colors2[metric_list2.index(metric)], boxpoints='all', boxmean=True, hovertext=classification_metrics_scaled_df[metric].index, hoverinfo='y+text'))
     for metric in metric_list2:
         mean_value = classification_metrics_scaled_df[metric].mean()
         median_value = classification_metrics_scaled_df[metric].median()
-        fig.add_annotation(x=metric, y=-0.15, yref='paper', text=f"Mean: {mean_value:.2f}" + f"<br>Median: {median_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors2[metric_list2.index(metric)], borderwidth=1, borderpad=4, align='center')
-    fig.update_layout(title_text=f"Summary of classification metrics", font=dict(size=15), height=800, width=600, margin=dict(t=100, b=100, l=60, r=60))
+        std_value = classification_metrics_scaled_df[metric].std()
+
+        fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
+        fig.add_annotation(x=metric, y=-0.2, yref='paper', text=f"Mean: {mean_value:.2f}" + f"<br>Median: {median_value:.2f}" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors2[metric_list2.index(metric)], borderwidth=1, borderpad=4, align='center')
+    fig.update_layout(title_text=f"Summary of classification metrics", font=dict(size=15), height=800, width=600, margin=dict(t=50, b=150, l=10, r=10))
     save_fig(fig, plots_path, 'box_AUCscores', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
@@ -290,8 +307,9 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
     for metric in metric_list1:
         mean_value = classification_metrics_combi_scaled_df[metric].mean()
         median_value = classification_metrics_combi_scaled_df[metric].median()
+        std_value = classification_metrics_combi_scaled_df[metric].std()
         fig.add_trace(go.Box(y=classification_metrics_combi_scaled_df[metric], name=metric, marker_color=metric_colors1[metric_list1.index(metric)], boxpoints='all', boxmean=True, hoverinfo='y+text', hovertext=classification_metrics_combi_scaled_df[metric].index))
-        fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
+        fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of metrics across combinations",
         font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')

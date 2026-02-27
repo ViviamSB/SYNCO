@@ -27,7 +27,14 @@ def _melt_cell_lines(
 ) -> pandas.DataFrame:
     # Melt cell lines into one column for the df_exp
     id_cols = ['Perturbation']
-    value_cols = cell_line_list
+    # Only use columns that exist in df to avoid melt errors
+    value_cols = [c for c in cell_line_list if c in df.columns]
+    if len(value_cols) == 0:
+        missing = [c for c in cell_line_list if c not in df.columns]
+        raise ValueError(
+            "None of the provided cell line columns were found in predictions DataFrame. "
+            f"Missing columns: {missing}"
+        )
     df = df.melt(
         id_vars=id_cols,
         value_vars=value_cols,

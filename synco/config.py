@@ -31,6 +31,16 @@ Configuration Structure:
         - analysis_mode: Comparison mode (default: "inhibitor_combination")
         - duplicate_strategy: How to handle duplicates (default: "mean")
         - debug_items: Optional list of items to debug (default: None)
+
+    - output_control: Optional output control settings
+        - enabled: Enable selective output writing (default: False)
+        - shared_output: Optional path for shared outputs (e.g., shared dicts/experimental_full_df)
+        - write_profiles: Write profile dictionaries to shared output
+        - write_experimental_full_df: Write experimental_full_df.csv to shared output
+        - write_predictions_full_df: Write predictions_full_df.csv to per-run output
+        - write_synergy_predictions: Write synergy_predictions.csv to per-run output
+        - write_compare_outputs: Write comparison outputs to per-run output
+        - write_roc_outputs: Write ROC/PR outputs to per-run output
     
     - advance: (Optional) Advanced overrides for step-specific defaults
         - Any step from BASE_DEFAULTS can be overridden here

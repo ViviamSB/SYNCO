@@ -2,8 +2,9 @@
 SYNCO.egg-info/
 *.egg-info/
 __pycache__/
+examples/
 examples/oneil/
-examples/trafikk/
-examples/trafikk_results.ipynb
+exmaples/bashi2024/*
+examples/trafikk_results*
 synco/features/__pycache__/
 synco/__pycache__/

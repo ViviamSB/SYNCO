@@ -172,7 +172,9 @@ def _process_experimental(
         value_name=synergy_column
     )
 
-    drug_names_synergies_df = df.pivot(index='drug_combination', columns=cell_line, values=synergy_column)
+    # Group by drug combination and cell line to handle duplicates
+    drug_names_mean_synergies = df.groupby(['drug_combination', cell_line])[synergy_column].mean().reset_index()
+    drug_names_synergies_df = drug_names_mean_synergies.pivot(index='drug_combination', columns=cell_line, values=synergy_column)
     drug_names_synergies_df = drug_names_synergies_df.reset_index().melt(
         id_vars=['drug_combination'],
         var_name=cell_line,

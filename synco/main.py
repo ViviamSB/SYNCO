@@ -5,7 +5,7 @@ from typing import Optional
 from pathlib import Path
 
 from .config import BASE_DEFAULTS
-from .utils import deep_merge, load_dataframe, echo_message
+from .utils import deep_merge, load_dataframe, echo_message, save_file
 from .features import (
     DataLoader,
     resolve_cell_lines,
@@ -77,6 +77,7 @@ def build_pipeline_config(user_config: dict) -> dict:
         "paths": user_config.get("paths", {}),
         "general": user_config.get("general", {}),
         "compare": user_config.get("compare", {}),
+        "output_control": user_config.get("output_control", {}),
         "steps": deepcopy(BASE_DEFAULTS),
     }
 
@@ -150,6 +151,8 @@ def run_pipeline(
     general = cfg["general"]
     compare = cfg["compare"]
     steps = cfg["steps"]
+    output_control = cfg.get("output_control", {})
+    use_output_control = bool(output_control.get("enabled", False))
     threshold = float(cfg["compare"].get("threshold", 0.0))
     threshold_offsets = cfg["compare"].get("threshold_offsets")
     roc_bootstrap_n = cfg["compare"].get("roc_bootstrap_n")
@@ -167,6 +170,12 @@ def run_pipeline(
         output = Path(output_path_config).expanduser()
     else:
         output = None
+
+    shared_output = None
+    if use_output_control:
+        shared_output_config = output_control.get("shared_output")
+        if shared_output_config:
+            shared_output = Path(shared_output_config).expanduser()
     
     runs = Path(paths["pipeline_runs"]).expanduser()
 
@@ -184,6 +193,8 @@ def run_pipeline(
     directories_to_create = [input, runs]
     if output is not None:
         directories_to_create.append(output)
+    if shared_output is not None:
+        directories_to_create.append(shared_output)
         
     for p in directories_to_create:
         p.mkdir(parents=True, exist_ok=True)
@@ -273,9 +284,12 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 2: Drug Profiles", verbose)
+            profiles_output = output
+            if use_output_control:
+                profiles_output = shared_output if output_control.get("write_profiles", False) else None
             drug_profiles = get_drugprofiles(
                 input_path=input,
-                output_path=output,
+                output_path=profiles_output,
                 inhibitor=steps['data_loading'].get("inhibitor_profiles", 'inhibitor_profiles'),
                 drug_info=steps['data_loading'].get("drug_info", 'drug_profiles')
                 )
@@ -294,6 +308,9 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 3: Synergy Predictions", verbose)
+            predictions_output = output
+            if use_output_control:
+                predictions_output = output if output_control.get("write_synergy_predictions", False) else None
             synergy_pred_results = get_synergy_predictions(
                 synergy_results_dict=synergy_data_dict,
                 combination_type=pred_cfg["combination_type"],
@@ -303,7 +320,7 @@ def run_pipeline(
                 target_type=pred_cfg["target_type"],
                 remove_duplicates=pred_cfg["remove_duplicates"],
                 add_experimental_observations=pred_cfg["add_experimental_observations"],
-                output_path=output
+                output_path=predictions_output
             )
             artifacts["synergy_predictions"] = synergy_pred_results
             echo_message("\nSynergy predictions completed successfully.", verbose)
@@ -322,6 +339,9 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 4: Synergy Converge", verbose)
+            converge_output = output
+            if use_output_control:
+                converge_output = None
             converge_experimental = converge_synergies(
                 df=synergies_exp_processed,
                 anchorID=conv_cfg['anchorID'],
@@ -333,7 +353,7 @@ def run_pipeline(
                 cell_line=conv_cfg['cell_line_column'],
                 cell_line_list=cell_lines,
                 predicted=conv_cfg['predicted_data'],
-                output_path=output
+                output_path=converge_output
             )
             exp_full_df, _, exp_inhibitor_group_synergies_df = converge_experimental
             converge_predictions = converge_synergies(
@@ -347,9 +367,14 @@ def run_pipeline(
                 cell_line=conv_cfg['cell_line_column'],
                 cell_line_list=cell_lines,
                 predicted=True,
-                output_path=output
+                output_path=converge_output
             )
             pred_full_df, _, pred_inhibitor_group_synergies_df = converge_predictions
+            if use_output_control:
+                if output_control.get("write_experimental_full_df", False) and shared_output is not None:
+                    save_file(exp_full_df, shared_output / "experimental_full_df.csv")
+                if output_control.get("write_predictions_full_df", False) and output is not None:
+                    save_file(pred_full_df, output / "predictions_full_df.csv")
             artifacts["experimental_convergence"] = converge_experimental
             artifacts["predictions_convergence"] = converge_predictions
             echo_message("\nSynergy convergence completed successfully.", verbose)
@@ -367,6 +392,9 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 5: Synergy Comparison", verbose)
+            compare_output = output
+            if use_output_control:
+                compare_output = output if output_control.get("write_compare_outputs", False) else None
             comparison_results, skipped_info, comparison_summary, pair_details_df = compare_synergies(
                 df_experiment=exp_inhibitor_group_synergies_df,
                 df_prediction=pred_inhibitor_group_synergies_df,
@@ -375,7 +403,7 @@ def run_pipeline(
                 threshold=threshold,
                 analysis_mode=compare.get("analysis_mode", "inhibitor_combination"),
                 duplicate_strategy=compare.get("duplicate_strategy", "mean"),
-                output_path=output,
+                output_path=compare_output,
                 debug_items=compare.get("debug_items", None),
                 return_pair_details=True,
                 df_experiment_full=exp_full_df,
@@ -400,6 +428,9 @@ def run_pipeline(
     try:
         if not plan:
             echo_message("\nStarting STEP 6: ROC & PR Calculations", verbose)
+            roc_output = output
+            if use_output_control:
+                roc_output = output if output_control.get("write_roc_outputs", False) else None
             roc_results, skipped_info = calculate_roc_metrics(
                 df_experiment=exp_full_df,
                 df_predictions=pred_full_df,
@@ -409,7 +440,7 @@ def run_pipeline(
                 n_bootstrap=roc_bootstrap_n,
                 ci_level=roc_bootstrap_ci,
                 verbose=verbose,
-                output_path=output
+                output_path=roc_output
             )
             artifacts["roc_results"] = roc_results
             echo_message("\nROC & PR calculations completed successfully.", verbose)
