@@ -85,14 +85,15 @@ def _prepare_roc_data(roc_inputs: Dict[str, Any]) -> Dict[str, Any]:
 #----------------------------------------------------------------------
 
 def plot_curves(
-        traces, 
-        auc_score_list, 
+        traces,
+        auc_score_list,
         tissue,
-        metric='ROC', 
-        width=800, 
+        metric='ROC',
+        width=800,
         height=800,
-    output=None,
-    meta: Optional[Dict[str, Dict[str, Any]]] = None
+        output=None,
+        show: bool = False,
+        meta: Optional[Dict[str, Dict[str, Any]]] = None
         ):
     
     fig = go.Figure()
@@ -179,8 +180,11 @@ def plot_curves(
     if output:
         fig.write_html(output / f"{metric}_curve_{tissue}.html")
         fig.write_image(output / f"{metric}_curve_{tissue}.svg", scale=2)
-        
-    fig.show()
+
+    if show:
+        fig.show()
+
+    return fig
 
 
 #//////////////////////////////////////////////////////////////////////////////
@@ -472,11 +476,12 @@ def make_roc_plots(
         tissue: str = "all",
         width: int = 800,
     height: int = 800,
-    plot_sweeps: bool = True
+    plot_sweeps: bool = True,
+    return_fig: bool = False,
 ) -> Tuple[Optional[go.Figure], Optional[go.Figure]]:
     """
     High-level entrypoint: load -> prepare -> plot ROC and PR curves.
-    
+
     Args:
         results_dir: Path to directory containing pipeline results (with roc_pr_curves.json)
         plots_dir: Directory to save plot files (if None, uses results_dir/plots)
@@ -486,77 +491,91 @@ def make_roc_plots(
         tissue: Tissue name for plot title
         width: Plot width in pixels
         height: Plot height in pixels
-        
+
     Returns:
         Tuple of (roc_fig, pr_fig) or (None, None) if no data available
     """
     # Load ROC/PR curve data
     roc_inputs = _load_roc_inputs(results_dir)
-    
+
     # Check if we have data
     if not roc_inputs['traces_roc'] or not roc_inputs['traces_pr']:
         logging.warning("No ROC/PR curve data available to plot. "
                        "Ensure the pipeline was run with output_path specified.")
         return None, None
-    
+
     # Prepare data (optional step, currently a pass-through)
     roc_data = _prepare_roc_data(roc_inputs)
-    
-    # Set up output directory
-    if plots_dir is None:
-        plots_dir = Path(results_dir) / 'plots'
-    plots_dir = Path(plots_dir)
-    plots_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # Set up output directory (only when saving to disk)
+    if not return_fig:
+        if plots_dir is None:
+            plots_dir = Path(results_dir) / 'plots'
+        plots_dir = Path(plots_dir)
+        plots_dir.mkdir(parents=True, exist_ok=True)
+    _output = None if return_fig else plots_dir
+
+    figs = []
+
     # Plot ROC curves
     logging.info("Generating ROC curve plot...")
     meta_map = {m.get('cell_line'): m for m in roc_data.get('roc_meta', []) if m.get('cell_line')}
-    plot_curves(
+    roc_fig = plot_curves(
         traces=roc_data['traces_roc'],
         auc_score_list=roc_data['rocauc_scores'],
         tissue=tissue,
         metric='ROC',
         width=width,
         height=height,
-        output=plots_dir if show else plots_dir,
+        output=_output,
+        show=show,
         meta=meta_map
     )
-    
+    if roc_fig is not None:
+        figs.append((roc_fig, 'plotly'))
+
     # Plot PR curves
     logging.info("Generating PR curve plot...")
-    plot_curves(
+    pr_fig = plot_curves(
         traces=roc_data['traces_pr'],
         auc_score_list=roc_data['prauc_scores'],
         tissue=tissue,
         metric='PR',
         width=width,
         height=height,
-        output=plots_dir if show else plots_dir,
+        output=_output,
+        show=show,
         meta=meta_map
     )
+    if pr_fig is not None:
+        figs.append((pr_fig, 'plotly'))
 
     # Threshold sweep plot (offset vs metric)
     if plot_sweeps and roc_data.get('threshold_sweeps'):
         try:
-            plot_threshold_sweeps(
+            sweep_fig = plot_threshold_sweeps(
                 sweeps=roc_data['threshold_sweeps'],
-                plots_dir=plots_dir,
+                plots_dir=_output,
                 metric='roc_auc',
                 width=width,
                 height=height//2,
                 show=show
             )
+            if return_fig and sweep_fig is not None:
+                figs.append((sweep_fig, 'plotly'))
         except Exception as e:
             logging.warning(f"Failed to plot threshold sweeps: {e}")
-    
+
+    if return_fig:
+        return figs
+
     logging.info(f"ROC/PR curve plots saved to: {plots_dir}")
-    
     return None  # Figures are shown/saved by plot_curves
 
 
 def plot_threshold_sweeps(
     sweeps: list,
-    plots_dir: Path,
+    plots_dir: Optional[Path] = None,
     metric: str = 'roc_auc',
     width: int = 800,
     height: int = 400,
@@ -601,12 +620,13 @@ def plot_threshold_sweeps(
         height=height,
     )
 
-    plots_dir.mkdir(parents=True, exist_ok=True)
-    fig.write_html(plots_dir / f"threshold_sweep_{metric}.html")
-    try:
-        fig.write_image(plots_dir / f"threshold_sweep_{metric}.svg", scale=2)
-    except Exception:
-        pass
+    if plots_dir is not None:
+        plots_dir.mkdir(parents=True, exist_ok=True)
+        fig.write_html(plots_dir / f"threshold_sweep_{metric}.html")
+        try:
+            fig.write_image(plots_dir / f"threshold_sweep_{metric}.svg", scale=2)
+        except Exception:
+            pass
     if show:
         fig.show()
     return fig

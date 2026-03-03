@@ -7,5 +7,12 @@
         "test*.py"
     ],
     "python.testing.pytestEnabled": false,
-    "python.testing.unittestEnabled": true
+    "python.testing.unittestEnabled": true,
+    "chat.tools.terminal.autoApprove": {
+        "/^powershell -Command \"Get-ChildItem -Path 'c:\\\\Users\\\\viviamsb\\\\OneDrive - NTNU\\\\PhD Folder\\\\Pipeline\\\\SYNCO\\\\examples\\\\bashi2024\\\\synco_output_window\\\\Breast\\\\synco_output' \\| Select-Object Name\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "test": true
+    }
 }

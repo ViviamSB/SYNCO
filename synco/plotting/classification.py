@@ -181,7 +181,7 @@ def _prepare_cell_df(roc_df: Optional[pd.DataFrame], comparison_cell_df: Optiona
     return classification_metrics_df
 
 
-def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str, show: bool = False):
+def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False):
     """Generate the BY CELL LINE plots and save them to `plots_path`."""
     plots_path = os.path.join(plots_path, '')
     metric_list1 = ['Accuracy', 'Recall', 'Precision']
@@ -190,6 +190,7 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     metric_colors2 = ['#FF6692', "#6EDEDA", '#FECB52']
 
     classification_metrics_scaled_df = classification_metrics_df.copy()
+    figs = []
 
     # BAR - Accuracy/Recall/Precision
     fig = go.Figure()
@@ -201,7 +202,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1, font=dict(size=14)))
     fig.update_xaxes(title_text='Cell Line')
     fig.update_yaxes(title_text='Percentage (%)')
-    save_fig(fig, plots_path, f"sum_{metric_list1}_barplot", formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, f"sum_{metric_list1}_barplot", formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
@@ -211,7 +215,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     fig.update_layout(title_text="Classification metrics by cell line", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
     if show:
         fig.show()
-    save_fig(fig, plots_path, 'heatmap_classification_metrics', formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, 'heatmap_classification_metrics', formats=['html', 'png'], fig_type='plotly')
 
     # BAR - F1/AUC
     fig = go.Figure()
@@ -219,7 +226,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     for metric in metric_list2:
         fig.add_trace(go.Bar(x=classification_metrics_scaled_df.index, y=classification_metrics_scaled_df[metric], name=metric, marker_color=metric_colors2[metric_list2.index(metric)], text=classification_metrics_scaled_df[metric].round(1), textposition='outside'))
     fig.update_layout(title_text=f"Summary of classification metrics by cell line", barmode='group', bargap=0.3, bargroupgap=0.1, height=500, width=1500)
-    save_fig(fig, plots_path, f"sum_{metric_list2}_barplot", formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, f"sum_{metric_list2}_barplot", formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
@@ -230,7 +240,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
         fig.update_layout(title_text="F1/AUC metrics by cell line", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
         if show:
             fig.show()
-        save_fig(fig, plots_path, 'heatmap_f1_auc_metrics', formats=['html', 'png'], fig_type='plotly')
+        if return_fig:
+            figs.append((fig, 'plotly'))
+        else:
+            save_fig(fig, plots_path, 'heatmap_f1_auc_metrics', formats=['html', 'png'], fig_type='plotly')
 
     # BOX PLOTS for Accuracy/Recall/Precision
     fig = go.Figure()
@@ -247,7 +260,10 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     fig.update_layout(title_text="Summary of performance metrics across cell lines",
         font=dict(size=15), height=800, width=600, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
-    save_fig(fig, plots_path, 'box_acuracy', formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, 'box_acuracy', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
@@ -266,23 +282,33 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
         fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
         fig.add_annotation(x=metric, y=-0.2, yref='paper', text=f"Mean: {mean_value:.2f}" + f"<br>Median: {median_value:.2f}" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors2[metric_list2.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text=f"Summary of classification metrics", font=dict(size=15), height=800, width=600, margin=dict(t=50, b=150, l=10, r=10))
-    save_fig(fig, plots_path, 'box_AUCscores', formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, 'box_AUCscores', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
+    if return_fig:
+        return figs
 
-def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bool = False):
+
+def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False):
     """Generate BY COMBINATION plots given `combi_match_df`."""
     plots_path = os.path.join(plots_path, '')
     metric_list1 = ['Accuracy', 'Recall', 'Precision']
     metric_colors1 = ['#636EFA', "#EEA9FC", "#48CECE"]
+    figs = []
 
     classification_metrics_combi_scaled_df = combi_match_df.copy().sort_values(by=metric_list1[0], ascending=False)
     fig = go.Figure()
     for metric in metric_list1:
         fig.add_trace(go.Bar(y=classification_metrics_combi_scaled_df[metric], x=classification_metrics_combi_scaled_df.index, name=metric, orientation='v', marker_color=metric_colors1[metric_list1.index(metric)], text=classification_metrics_combi_scaled_df[metric].round(0), textposition='outside'))
     fig.update_layout(title_text="Classification Metrics by inhibitor group combination", barmode='group', bargap=0.3, bargroupgap=0.1, height=500, width=1500, font=dict(size=14))
-    save_fig(fig, plots_path, f"sum_{metric_list1}_barplot_combination", formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, f"sum_{metric_list1}_barplot_combination", formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
@@ -298,7 +324,10 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         zmax=100
     ))
     fig.update_layout(title_text="Predictive performance by combination", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
-    save_fig(fig, plots_path, 'heatmap_classification_metrics_combi', formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, 'heatmap_classification_metrics_combi', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
@@ -313,12 +342,18 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
     fig.update_layout(title_text="Summary of metrics across combinations",
         font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
-    save_fig(fig, plots_path, 'box_acuracy_combination', formats=['html', 'png'], fig_type='plotly')
+    if return_fig:
+        figs.append((fig, 'plotly'))
+    else:
+        save_fig(fig, plots_path, 'box_acuracy_combination', formats=['html', 'png'], fig_type='plotly')
     if show:
         fig.show()
 
+    if return_fig:
+        return figs
 
-def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None, show: bool = False, analysis_type: Optional[str] = None, debug: bool = False):
+
+def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None, show: bool = False, analysis_type: Optional[str] = None, debug: bool = False, return_fig: bool = False):
     """High-level entrypoint: load -> process -> plot classification metrics.
 
     - `results_dir`: folder containing `roc_metrics_df.csv` and comparison results
@@ -381,9 +416,10 @@ def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None,
             logger.info('combi_match_df shape=%s', getattr(combi_match_df, 'shape', None))
             logger.info('combi_match_df columns=%s', list(combi_match_df.columns))
 
-    if plots_dir is None:
-        plots_dir = os.path.join(results_dir, 'plots')
-    os.makedirs(plots_dir, exist_ok=True)
+    if not return_fig:
+        if plots_dir is None:
+            plots_dir = os.path.join(results_dir, 'plots')
+        os.makedirs(plots_dir, exist_ok=True)
 
     # Decide which plots to make based on `analysis_type` or available files
     want_cell = False
@@ -398,10 +434,18 @@ def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None,
         if at in ('combination', 'combi', 'comb', 'inhibitor_group', 'inhibitor_combination'):
             want_comb = True
 
+    figs = []
     if want_cell:
-        _plot_by_cell_line(classification_metrics_df, plots_dir, show=show)
+        cell_figs = _plot_by_cell_line(classification_metrics_df, plots_dir, show=show, return_fig=return_fig)
+        if return_fig and cell_figs:
+            figs.extend(cell_figs)
     if want_comb:
-        _plot_by_combination(combi_match_df, plots_dir, show=show)
+        combi_figs = _plot_by_combination(combi_match_df, plots_dir, show=show, return_fig=return_fig)
+        if return_fig and combi_figs:
+            figs.extend(combi_figs)
+
+    if return_fig:
+        return figs
 
     return {
         'classification_metrics_df': classification_metrics_df,

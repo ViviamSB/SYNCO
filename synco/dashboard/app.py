@@ -15,6 +15,9 @@ Usage
 import logging
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend – safe for threaded Flask/Dash
+
 import dash
 import dash_bootstrap_components as dbc
 import flask
@@ -70,7 +73,7 @@ def create_app(debug: bool = False) -> dash.Dash:
         __name__,
         server=server,
         use_pages=True,
-        pages_folder=str(Path(__file__).parent / "pages"),
+        pages_folder="pages",
         assets_folder=str(_ASSETS_DIR),
         external_stylesheets=[
             dbc.themes.BOOTSTRAP,
@@ -88,20 +91,16 @@ def create_app(debug: bool = False) -> dash.Dash:
             dcc.Store(id="store-results-dir",      storage_type="session"),
             dcc.Store(id="store-cell-fate-dir",    storage_type="session"),
             dcc.Store(id="store-config",           storage_type="session"),
+            dcc.Store(id="store-data",             storage_type="session"),
             dcc.Store(
                 id="store-pipeline-status",
                 storage_type="memory",
                 data={"status": "idle", "message": ""},
             ),
             dcc.Store(
-                id="store-coverage",
+                id="store-filters",
                 storage_type="memory",
-                data={"level": "global"},
-            ),
-            dcc.Store(
-                id="store-eval",
-                storage_type="memory",
-                data={"tab": "classification"},
+                data={"cell_line": None, "combination": None, "drug": None, "profile": None},
             ),
         ],
         id="global-stores",
@@ -125,6 +124,10 @@ def create_app(debug: bool = False) -> dash.Dash:
                             href="/",
                         )),
                         dbc.NavItem(dbc.NavLink(
+                            [html.I(className="bi bi-table me-1"), "Data"],
+                            href="/data",
+                        )),
+                        dbc.NavItem(dbc.NavLink(
                             [html.I(className="bi bi-bar-chart-line me-1"), "Explorer"],
                             href="/explorer",
                         )),
@@ -146,6 +149,7 @@ def create_app(debug: bool = False) -> dash.Dash:
     # ------------------------------------------------------------------
     app.layout = html.Div(
         [
+            dcc.Location(id="url", refresh=False),
             stores,
             navbar,
             dash.page_container,
@@ -157,8 +161,10 @@ def create_app(debug: bool = False) -> dash.Dash:
     # ------------------------------------------------------------------
     from synco.dashboard.callbacks.pipeline_cb import register_pipeline_callbacks
     from synco.dashboard.callbacks.plot_cb import register_plot_callbacks
+    from synco.dashboard.callbacks.data_cb import register_data_callbacks
 
     register_pipeline_callbacks(app)
+    register_data_callbacks(app)
     register_plot_callbacks(app)
 
     logger.info("SYNCO Dashboard app created (debug=%s)", debug)

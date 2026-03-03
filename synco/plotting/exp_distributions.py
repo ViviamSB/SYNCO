@@ -11,6 +11,7 @@ The plotting script consist of three steps:
 """
 
 import os
+import json
 import logging
 
 import pandas as pd
@@ -31,12 +32,75 @@ def _load_experimental_inputs(results_dir):
     """Load only the input data for experimental distribution plotting.
     """
     results = _load_main_results(results_dir)
+    experimental = results.get('files', {}).get('experimental')
+    dicts = dict(results.get('dicts', {}) or {})
+
+    shared_dir = os.path.join(os.path.dirname(os.path.dirname(results_dir)), "synco_shared")
+
+    # Fallback: try synco_shared when experimental is not in the per-tissue results_dir
+    if experimental is None:
+        for fname in [
+            "experimental_full_df.csv",
+            "experimental_drug_names_synergies_df.csv",
+            "experimental_matrix_df.csv",
+            "experimental_window_df.csv",
+        ]:
+            cand = os.path.join(shared_dir, fname)
+            if os.path.exists(cand):
+                try:
+                    experimental = pd.read_csv(cand)
+                    logging.getLogger(__name__).info("Loaded experimental data from synco_shared: %s", cand)
+                    break
+                except Exception:
+                    pass
+
+    # Fallback: load JSON dicts from synco_shared when missing from per-tissue results
+    dict_filenames = {
+        "PD_mechanism_dict":    "PD_mechanism_dict.json",
+        "PD_inhibitors_dict":   "PD_inhibitors_dict.json",
+        "mechanism_PD_dict":    "mechanism_PD_dict.json",
+        "Drugnames_PD_dict":    "Drugnames_PD_dict.json",
+        "PD_drugnames_dict":    "PD_drugnames_dict.json",
+        "inhibitorgroups_dict": "inhibitorgroups_dict.json",
+    }
+    for key, fname in dict_filenames.items():
+        if not dicts.get(key):
+            cand = os.path.join(shared_dir, fname)
+            if os.path.exists(cand):
+                try:
+                    with open(cand, 'r', encoding='utf-8') as fh:
+                        dicts[key] = json.load(fh)
+                    logging.getLogger(__name__).info("Loaded %s from synco_shared", key)
+                except Exception:
+                    pass
+
+    # Scope experimental data to the tissue-specific cell lines.
+    # predictions_full_df is in wide format with cell lines as column headers and is
+    # already filtered to the current tissue's cell lines by the pipeline.
+    # When experimental comes from synco_shared it contains ALL cell lines, so we
+    # restrict it to the same set used in predictions.
+    if experimental is not None and 'cell_line' in experimental.columns:
+        predictions_df = results.get('files', {}).get('predictions')
+        if predictions_df is not None:
+            _pred_meta = {
+                'Perturbation', 'PD_A', 'PD_B', 'drug_name_A', 'drug_name_B',
+                'node_targets_A', 'node_targets_B', 'drug_combination',
+                'inhibitor_group_A', 'inhibitor_group_B', 'inhibitor_combination',
+                'targets_A', 'targets_B', 'target_combination',
+            }
+            tissue_cell_lines = [c for c in predictions_df.columns if c not in _pred_meta]
+            if tissue_cell_lines:
+                experimental = experimental[experimental['cell_line'].isin(tissue_cell_lines)]
+                logging.getLogger(__name__).info(
+                    "Filtered experimental data to %d tissue cell lines", len(tissue_cell_lines)
+                )
+
     experimental_input = {
         'files': {
-            'experimental': results.get('files', {}).get('experimental'),
+            'experimental': experimental,
         },
-        'dicts': results.get('dicts', {}),
-        }
+        'dicts': dicts,
+    }
     return experimental_input
 
 #----------------------------------------------------------------------
@@ -47,6 +111,11 @@ def _prepare_experimental_counts(experimental_input, threshold=0):
     """Process the loaded input data for experimental distribution plotting.
     """
     experimental_df = experimental_input['files']['experimental']
+    if experimental_df is None:
+        raise ValueError(
+            "Experimental data not found in results_dir. "
+            "Experimental distribution plots require an experimental data file."
+        )
 
     # Remove rows with missing PD information and ensure we have a copy
     experimental_df = experimental_df.dropna(subset=['PD_A', 'PD_B']).copy()
@@ -67,7 +136,17 @@ def _prepare_experimental_counts(experimental_input, threshold=0):
     # Map mechanisms onto the DataFrame
     experimental_df['Mechanism_A'] = experimental_df['PD_A'].map(_map_mechanism)
     experimental_df['Mechanism_B'] = experimental_df['PD_B'].map(_map_mechanism)
-    experimental_df['mech_combination'] = experimental_df['Mechanism_A'] + " + " + experimental_df['Mechanism_B']
+    if bool(pm):
+        experimental_df['mech_combination'] = (
+            experimental_df['Mechanism_A'].fillna('Unknown') + " + " + experimental_df['Mechanism_B'].fillna('Unknown')
+        )
+    else:
+        # No mechanism dict — fall back to inhibitor combination (always present)
+        experimental_df['mech_combination'] = (
+            experimental_df['inhibitor_combination']
+            if 'inhibitor_combination' in experimental_df.columns
+            else 'Unknown + Unknown'
+        )
     mech_combi_list = experimental_df['mech_combination'].unique().tolist()
     # Count synergies occurrences
     mechanism_matrix = experimental_df.copy()
@@ -459,6 +538,7 @@ def _plot_histogram_experimental_distribution(
     fig.update_yaxes(showticklabels=False, row=1, col=2)
 
     # --- Row 2 Col 1: Scatter plot ---
+    pairwise_color_map = None
     if selected_mechanism:
         pairwise_color_map = _style_pairwise_colors(scatter_data, selected_mechanism)
 
@@ -563,7 +643,8 @@ def _plot_histogram_experimental_distribution(
 def make_experimental_distribution_plots(results_dir, plots_dir, show=False, debug=False,
                                         threshold: float=0, selected_mechanism: tuple=None,
                                         distribution_size: tuple=None,
-                                        stackedbar_size: tuple=None
+                                        stackedbar_size: tuple=None,
+                                        return_fig: bool = False
                                         ):
     """Make experimental distribution plots: load -> process -> plot
     """
@@ -604,6 +685,9 @@ def make_experimental_distribution_plots(results_dir, plots_dir, show=False, deb
         width=width_dist,
         show=show,
     )
+
+    if return_fig:
+        return [(fig_synergy_counts, 'plotly'), (fig_synergy_distributuion, 'plotly')]
 
     save_fig(
         fig_synergy_counts,

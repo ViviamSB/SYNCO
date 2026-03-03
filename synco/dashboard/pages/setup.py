@@ -99,30 +99,12 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
                                 dbc.Row(
                                     [
                                         dbc.Col(
-                                            dbc.Label("synco_output directory"),
-                                            width=3,
-                                        ),
-                                        dbc.Col(
-                                            dbc.Input(
-                                                id="input-load-path",
-                                                type="text",
-                                                placeholder="Absolute path to synco_output/ folder",
-                                                debounce=True,
-                                                persistence=True,
-                                                persistence_type="session",
-                                            ),
-                                            width=9,
-                                        ),
-                                    ],
-                                    className="mb-3 align-items-center",
-                                ),
-                                dbc.Row(
-                                    [
-                                        dbc.Col(
                                             [
-                                                dbc.Label("Cell fate directory"),
+                                                dbc.Label("Results directory"),
                                                 dbc.FormText(
-                                                    "Optional – needed for Tissue-level visualisations",
+                                                    "Path to a single synco_output/ folder "
+                                                    "or to a parent directory containing "
+                                                    "per-tissue results – auto-detected.",
                                                     color="secondary",
                                                 ),
                                             ],
@@ -130,9 +112,12 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
                                         ),
                                         dbc.Col(
                                             dbc.Input(
-                                                id="input-load-cell-fate-dir",
+                                                id="input-load-path",
                                                 type="text",
-                                                placeholder="Parent dir containing per-tissue result folders (optional)",
+                                                placeholder=(
+                                                    "e.g. /path/to/synco_output   "
+                                                    "or /path/to/synco_output_window"
+                                                ),
                                                 debounce=True,
                                                 persistence=True,
                                                 persistence_type="session",
@@ -161,33 +146,8 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
                 ],
             ),
 
-            # ── Status panel ───────────────────────────────────────────────
-            dbc.Row(
-                dbc.Col(
-                    dbc.Card(
-                        dbc.CardBody(
-                            [
-                                html.Div(
-                                    [
-                                        html.Span("Status: ", className="fw-semibold me-2"),
-                                        dbc.Badge(
-                                            "Idle",
-                                            id="pipeline-status-badge",
-                                            color="secondary",
-                                            pill=True,
-                                            className="fs-6",
-                                        ),
-                                    ],
-                                    className="mb-2",
-                                ),
-                                html.Div(id="status-explorer-link"),
-                            ]
-                        ),
-                        className="mb-4",
-                    ),
-                    width=12,
-                )
-            ),
+            # ── Open Data link (shown once a directory is loaded) ──────────
+            html.Div(id="status-explorer-link", className="mb-4"),
 
             # Polling interval (starts disabled; enabled once pipeline starts)
             dcc.Interval(
@@ -219,20 +179,22 @@ def toggle_sections(mode):
 @callback(
     Output("status-explorer-link", "children"),
     Input("store-results-dir",     "data"),
-    Input("store-pipeline-status", "data"),
+    Input("store-cell-fate-dir",   "data"),
 )
-def update_explorer_link(results_data, status_data):
-    status = (status_data or {}).get("status", "idle")
-    results_dir = (results_data or {}).get("results_dir")
+def update_explorer_link(results_data, cell_fate_data):
+    results_dir  = (results_data   or {}).get("results_dir")
+    cell_fate_dir = (cell_fate_data or {}).get("cell_fate_dir")
 
-    if results_dir and status in ("done", "idle"):
+    # Show the button as soon as either store has data
+    if results_dir or cell_fate_dir:
+        ready_label = results_dir or cell_fate_dir
         return dbc.Alert(
             [
                 html.I(className="bi bi-check-circle-fill me-2 text-success"),
-                f"Results ready: {results_dir}  ",
+                f"Results ready: {ready_label}  ",
                 dbc.Button(
-                    [html.I(className="bi bi-bar-chart-line me-1"), "Open Explorer →"],
-                    href="/explorer",
+                    [html.I(className="bi bi-table me-1"), "Open Data →"],
+                    href="/data",
                     external_link=False,
                     color="success",
                     size="sm",

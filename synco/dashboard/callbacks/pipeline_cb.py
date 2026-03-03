@@ -30,6 +30,36 @@ from synco.dashboard.components.config_form import FORM_FIELD_IDS
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Directory structure detection helpers
+# ---------------------------------------------------------------------------
+
+_EXPECTED_FILES = ["roc_metrics_df.csv", "roc_pr_curves.json"]
+
+
+def _is_single_output_dir(path: Path) -> bool:
+    """True if *path* directly contains at least one expected synco output file."""
+    return any((path / f).exists() for f in _EXPECTED_FILES)
+
+
+def _scan_multi_tissue_root(path: Path) -> list:
+    """
+    Return a sorted list of ``<tissue>/synco_output`` Paths found directly
+    inside *path*, filtered to those that contain expected output files.
+    """
+    found = []
+    try:
+        for subdir in sorted(path.iterdir()):
+            if not subdir.is_dir():
+                continue
+            candidate = subdir / "synco_output"
+            if candidate.is_dir() and _is_single_output_dir(candidate):
+                found.append(candidate)
+    except PermissionError:
+        pass
+    return found
+
+
+# ---------------------------------------------------------------------------
 # Shared state for background thread
 # ---------------------------------------------------------------------------
 _state: dict = {
@@ -279,27 +309,26 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
         )
 
     # ------------------------------------------------------------------
-    # 3.  Load existing results directory
+    # 3.  Load existing results directory (auto-detects structure)
     # ------------------------------------------------------------------
     @app.callback(
-        Output("store-results-dir",      "data",      allow_duplicate=True),
-        Output("store-cell-fate-dir",    "data"),
-        Output("load-alert",             "children"),
-        Output("load-alert",             "color"),
-        Output("load-alert",             "is_open"),
-        Input("btn-load-results",        "n_clicks"),
-        State("input-load-path",         "value"),
-        State("input-load-cell-fate-dir","value"),
+        Output("store-results-dir",   "data",  allow_duplicate=True),
+        Output("store-cell-fate-dir", "data",  allow_duplicate=True),
+        Output("load-alert",          "children"),
+        Output("load-alert",          "color"),
+        Output("load-alert",          "is_open"),
+        Input("btn-load-results",     "n_clicks"),
+        State("input-load-path",      "value"),
         prevent_initial_call=True,
     )
-    def load_existing_results(n_clicks, load_path, cell_fate_path):
+    def load_existing_results(n_clicks, load_path):
         if not n_clicks:
             raise PreventUpdate
 
         if not load_path or not load_path.strip():
             return (
                 no_update, no_update,
-                "Please enter a path to the synco output directory.",
+                "Please enter a path to the results directory.",
                 "warning", True,
             )
 
@@ -311,25 +340,45 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
                 "danger", True,
             )
 
-        # Light validation: look for at least one expected output file
-        expected = ["roc_metrics_df.csv", "roc_pr_curves.json"]
-        found = [f for f in expected if (p / f).exists()]
-        if not found:
-            return (
-                no_update, no_update,
-                f"No synco output files found in {p}. "
-                "Expected roc_metrics_df.csv or roc_pr_curves.json.",
-                "warning", True,
-            )
+        # ------------------------------------------------------------------
+        # Auto-detect structure
+        # ------------------------------------------------------------------
+        if _is_single_output_dir(p):
+            # Single synco_output/ folder – use as results_dir directly.
+            results_data   = {"results_dir": str(p)}
+            # Also try the grandparent as a potential multi-tissue root.
+            grandparent    = p.parent.parent
+            tissue_dirs    = _scan_multi_tissue_root(grandparent)
+            if tissue_dirs:
+                cell_fate_data = {"cell_fate_dir": str(grandparent)}
+                msg = (
+                    f"Loaded single output: {p.name}  |  "
+                    f"Multi-tissue root auto-detected ({len(tissue_dirs)} tissues): "
+                    f"{grandparent.name}"
+                )
+            else:
+                cell_fate_data = no_update
+                msg = f"Loaded results from: {p}"
+            return results_data, cell_fate_data, msg, "success", True
 
-        results_data = {"results_dir": str(p)}
-        cell_fate_data = (
-            {"cell_fate_dir": cell_fate_path.strip()}
-            if cell_fate_path and cell_fate_path.strip()
-            else no_update
-        )
+        tissue_dirs = _scan_multi_tissue_root(p)
+        if tissue_dirs:
+            # Multi-tissue root – store as cell_fate_dir; leave results_dir unset
+            # until the user picks a tissue on the Explorer page.
+            cell_fate_data = {"cell_fate_dir": str(p)}
+            tissue_names   = [t.parent.name for t in tissue_dirs]
+            msg = (
+                f"Multi-tissue root detected ({len(tissue_dirs)} tissues: "
+                f"{', '.join(tissue_names[:5])}"
+                + (" …" if len(tissue_names) > 5 else "")
+                + "). Select a tissue in Explorer for single-tissue plots."
+            )
+            return no_update, cell_fate_data, msg, "success", True
+
         return (
-            results_data, cell_fate_data,
-            f"Loaded results from {p}.",
-            "success", True,
+            no_update, no_update,
+            f"No recognisable SYNCO output found in {p}. "
+            "Expected roc_metrics_df.csv / roc_pr_curves.json directly or in "
+            "<tissue>/synco_output/ sub-directories.",
+            "warning", True,
         )

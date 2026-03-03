@@ -19,31 +19,42 @@ from .load_results import (_load_main_results,)
 # STYLE settings
 # ---------------------------
 
-def _style_moa_colors(results: Optional[dict] = None) -> Dict[str, str]:
-	"""Return a mapping mechanism -> color.
+def _style_moa_colors(results: Optional[dict] = None, group_names: Optional[List[str]] = None) -> Dict[str, str]:
+	"""Return a mapping mechanism/group -> color.
 
-	If `results` dict (from `_load_main_results`) is provided, extract mechanism
-	names from `mechanism_drugnames_dict` keys or `PD_mechanism_dict` values.
-	Otherwise create numeric mechanism names ('Mechanism 1', ...) up to 9 items.
+	Priority order:
+	1. If `group_names` is explicitly supplied, map those names directly to colors
+	   (used when no mechanism dict is available and caller has actual group names).
+	2. If `results` dict is provided, extract mechanism names from
+	   `mechanism_drugnames_dict` keys or `PD_mechanism_dict` values.
+	3. Fall back to numeric labels ('Mechanism 1', ...) up to 12 items.
 
-	Returns up to 10 colors; the last color is reserved for 'Unlabeled'.
+	Returns up to 13 colors; the last is reserved for 'Unlabeled'.
 	"""
 
 	palette = [
-		"#16B7D3",  
-		"#71C715",  
-		"#FC7299",  
+		"#16B7D3",
+		"#71C715",
+		"#FC7299",
 		"#F09138",
 		"#636EFA",
 		"#FF97FF",
-		"#BD7EF7",		
-		"#72B7B2", 
-		"#FF6F61", 
-		"#0C40A0", 
+		"#BD7EF7",
+		"#72B7B2",
+		"#FF6F61",
+		"#0C40A0",
 		"#FFDE4D",
-		"#DD4477",  
+		"#DD4477",
 		"#757575",  # gray (Unlabeled)
 	]
+
+	# Priority 1: caller supplied explicit group names (e.g. inhibitor groups)
+	if group_names:
+		mapping: Dict[str, str] = {}
+		for i, name in enumerate(sorted(group_names)):
+			mapping[name] = palette[i % (len(palette) - 1)]
+		mapping['Unlabeled'] = palette[-1]
+		return mapping
 
 	mechs: List[str] = []
 	if results and isinstance(results, dict):
@@ -82,9 +93,12 @@ def _prepare_predictions(results: dict) -> pd.DataFrame:
 	"""Process predictions from the `results` dict returned by `_load_main_results`.
 
 	This function requires the `results` dict (it will not accept a path or DataFrame).
-	It expects `results['files']['predictions']` to be a pandas DataFrame and will use
-	`results['dicts']['mechanism_PD_dict']` (if present) to create `moa_group_A/B` from
-	PD IDs. If `mechanism_PD_dict` is absent, `moa_group_A/B` will not be created.
+	It expects `results['files']['predictions']` to be a pandas DataFrame.
+
+	`moa_group_A/B` columns are always created:
+	- If `mechanism_PD_dict` is present in results, mechanism labels are used.
+	- Otherwise, `inhibitor_group_A/B` (always in the predictions file) are used
+	  as a generic fallback so downstream plots always have a grouping variable.
 	"""
 	if not isinstance(results, dict) or 'files' not in results:
 		raise ValueError('`results` must be the dict returned by _load_main_results')
@@ -136,11 +150,23 @@ def _prepare_predictions(results: dict) -> pd.DataFrame:
 		value_name='synergy'
 	)
 
-	# Only create moa_group columns when mechanism_PD_dict is provided
+	# Always create moa_group columns: use mechanism dict when available,
+	# otherwise fall back to inhibitor_group (always present in predictions).
 	if mechanism_PD:
 		mechanism_PD_str = {str(k): v for k, v in mechanism_PD.items()}
 		predictions_melted['moa_group_A'] = predictions_melted['PD_A'].astype(str).map(mechanism_PD_str)
 		predictions_melted['moa_group_B'] = predictions_melted['PD_B'].astype(str).map(mechanism_PD_str)
+	else:
+		predictions_melted['moa_group_A'] = (
+			predictions_melted['inhibitor_group_A']
+			if 'inhibitor_group_A' in predictions_melted.columns
+			else 'Unlabeled'
+		)
+		predictions_melted['moa_group_B'] = (
+			predictions_melted['inhibitor_group_B']
+			if 'inhibitor_group_B' in predictions_melted.columns
+			else 'Unlabeled'
+		)
 
 	# Ensure synergy values are numeric, then flip the sign
 	predictions_melted['synergy'] = pd.to_numeric(predictions_melted['synergy'], errors='coerce')
@@ -183,19 +209,22 @@ def _prepare_pairs_table(predictions_melted: pd.DataFrame, PD_combi: List[str], 
 
 	`PD_combi` is expected to be provided by the caller (list of "A | B" strings).
 	"""
+	_agg = dict(
+		median=('synergy', 'median'),
+		mean=('synergy', 'mean'),
+		std=('synergy', 'std'),
+		iqr=('synergy', lambda x: np.nanpercentile(x, 75) - np.nanpercentile(x, 25)),
+		n_cell_lines=('synergy', 'size'),
+		drug_name_A=('drug_name_A', 'first'),
+		drug_name_B=('drug_name_B', 'first'),
+	)
+	if 'moa_group_A' in predictions_melted.columns:
+		_agg['moa_A'] = ('moa_group_A', 'first')
+	if 'moa_group_B' in predictions_melted.columns:
+		_agg['moa_B'] = ('moa_group_B', 'first')
 	pair_table = (predictions_melted
 				  .groupby(['PD_A', 'PD_B'], as_index=False)
-				  .agg(
-					  median=('synergy', 'median'),
-					  mean=('synergy', 'mean'),
-					  std=('synergy', 'std'),
-					  iqr=('synergy', lambda x: np.nanpercentile(x, 75) - np.nanpercentile(x, 25)),
-					  n_cell_lines=('synergy', 'size'),
-					  drug_name_A=('drug_name_A', 'first'),
-					  drug_name_B=('drug_name_B', 'first'),
-					  moa_A=('moa_group_A', 'first'),
-					  moa_B=('moa_group_B', 'first')
-				  )
+				  .agg(**_agg)
 				  )
 
 	pair_table = pair_table.sort_values(by=['median', 'iqr'], ascending=[False, True]).reset_index(drop=True)
@@ -344,6 +373,11 @@ def plot_violin_scatter(predictions_melted: pd.DataFrame,
 		moa_colors = _style_moa_colors(results)
 
 	df = predictions_melted.copy()
+	# Ensure moa columns exist (only created when mechanism_PD_dict is present in results)
+	if 'moa_group_A' not in df.columns:
+		df['moa_group_A'] = 'Unlabeled'
+	if 'moa_group_B' not in df.columns:
+		df['moa_group_B'] = 'Unlabeled'
 	# prepare stacked mechanism distributions
 	A_part = df[["synergy", "moa_group_A"]].rename(columns={"moa_group_A": "mechanism"}).copy()
 	B_part = df[["synergy", "moa_group_B"]].rename(columns={"moa_group_B": "mechanism"}).copy()
@@ -523,6 +557,7 @@ def make_pred_distribution_plots(
 	show: bool = False,
 	violin_size: Optional[tuple] = None,
 	table_size: Optional[tuple] = None,
+	return_fig: bool = False,
 ) -> None:
 	"""Load results, prepare data and create distribution-related figures.
 
@@ -532,9 +567,10 @@ def make_pred_distribution_plots(
 	"""
 	results = _load_results_for_distributions(results_dir)
 
-	if plots_dir is None:
-		plots_dir = os.path.join(results.get('results_dir', results_dir), 'plots')
-	os.makedirs(plots_dir, exist_ok=True)
+	if not return_fig:
+		if plots_dir is None:
+			plots_dir = os.path.join(results.get('results_dir', results_dir), 'plots')
+		os.makedirs(plots_dir, exist_ok=True)
 
 	# Prepare predictions and derived summaries
 	preds = _prepare_predictions(results)
@@ -545,19 +581,43 @@ def make_pred_distribution_plots(
 
 	moa_colors = _style_moa_colors(results)
 
+	# When no mechanism dict is present, moa_group columns hold inhibitor group names.
+	# Override the generic color mapping with one keyed to the actual group names.
+	dicts_bundle = results.get('dicts', {}) or {}
+	has_mechanism = bool(
+		dicts_bundle.get('PD_mechanism_dict') or
+		dicts_bundle.get('mechanism_PD_dict') or
+		dicts_bundle.get('mechanism_drugnames_dict')
+	)
+	if not has_mechanism:
+		group_names: List[str] = []
+		for col in ('moa_group_A', 'moa_group_B'):
+			if col in preds.columns:
+				group_names.extend(preds[col].dropna().unique().tolist())
+		group_names = sorted(set(group_names))
+		if group_names:
+			moa_colors = _style_moa_colors(group_names=group_names)
+			# Use actual group names as family_priority so scatter points are
+			# colored by inhibitor group rather than all falling through to 'Other'.
+			if family_priority is None:
+				family_priority = group_names
+
 	# Violin + scatter
 	vw, vh = (violin_size or (1400, 600))
+	figs = []
 	try:
-		plot_violin_scatter(preds,
+		fig_violin = plot_violin_scatter(preds,
 							PD_combi=PD_combi,
 							results=results,
 							moa_colors=moa_colors,
 							family_priority=family_priority,
-							plot_dir=plots_dir,
+							plot_dir=None if return_fig else plots_dir,
 							plot_name=f"{violin_scatter_plot_name}_violin",
 							width=vw,
 							height=vh,
 							show=show)
+		if return_fig:
+			figs.append((fig_violin, 'plotly'))
 	except Exception:
 		logging.getLogger(__name__).exception('Failed to render violin + scatter')
 
@@ -565,12 +625,17 @@ def make_pred_distribution_plots(
 	if mechanism_summary is not None:
 		tw, th = (table_size or (1000, 500))
 		try:
-			plot_mechanism_summary_table(mechanism_summary,
+			fig_table = plot_mechanism_summary_table(mechanism_summary,
 										plot_name=table_plot_name,
 										width=tw,
 										height=th,
-										plots_dir=plots_dir,
+										plots_dir=None if return_fig else plots_dir,
 										show=show)
+			if return_fig:
+				figs.append((fig_table, 'plotly'))
 		except Exception:
 			logging.getLogger(__name__).exception('Failed to render mechanism summary table')
+
+	if return_fig:
+		return figs
 

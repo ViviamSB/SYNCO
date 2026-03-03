@@ -719,17 +719,24 @@ def make_ring_plots(
 	ncols: int = 7,
 	center_metric: str = 'recall',
 	center_fontsize: int = 14,
+	_preloaded_results: Optional[dict] = None,
+	return_fig: bool = False,
 ) -> None:
 	"""Load minimal performance results and render ring plots for cell lines or combinations.
 
 	This wrapper uses the reduced loader to prepare data and calls the
 	plotting functions in this module. Files are saved under `plots_dir`.
-	"""
-	results = _load_results_for_performance(results_dir)
 
-	if plots_dir is None:
-		plots_dir = os.path.join(results.get('results_dir', results_dir), 'plots')
-	os.makedirs(plots_dir, exist_ok=True)
+	``_preloaded_results`` may be supplied by callers that have already loaded
+	(and optionally filtered) the results dict; when given the internal load
+	step is skipped.
+	"""
+	results = _preloaded_results if _preloaded_results is not None else _load_results_for_performance(results_dir)
+
+	if not return_fig:
+		if plots_dir is None:
+			plots_dir = os.path.join(results.get('results_dir', results_dir), 'plots')
+		os.makedirs(plots_dir, exist_ok=True)
 
 	# Prepare normalized comparison DataFrame
 	try:
@@ -769,21 +776,26 @@ def make_ring_plots(
 		comp_norm = comp_norm.sort_values(by=sort_by, ascending=False) if sort_by in comp_norm.columns else comp_norm
 	except Exception:
 		logging.getLogger(__name__).exception('Failed to prepare normalized comparison data for ring plots')
-		return
+		return [] if return_fig else None
 
 	# Ring plots
 	try:
+		_plots_dir = None if return_fig else plots_dir
 		if analysis_type == 'cell_line':
 			rings_plot_name = 'cell_line_rings'
-			plot_cell_line_rings(comp_norm, plots_dir=plots_dir, plot_name=rings_plot_name,
+			fig = plot_cell_line_rings(comp_norm, plots_dir=_plots_dir, plot_name=rings_plot_name,
 								 ncols=ncols, figsize=size, show=show,
 								 center_metric=center_metric, center_fontsize=center_fontsize)
 		elif analysis_type == 'inhibitor_combination':
 			rings_plot_name = 'combination_rings'
-			plot_combination_rings(comp_norm, plots_dir=plots_dir, plot_name=rings_plot_name,
+			fig = plot_combination_rings(comp_norm, plots_dir=_plots_dir, plot_name=rings_plot_name,
 								   ncols=ncols, figsize=size, show=show,
 								   center_metric=center_metric, center_fontsize=center_fontsize)
 		else:
 			raise ValueError(f'Unknown analysis_type: {analysis_type}')
+		if return_fig:
+			return [(fig, 'matplotlib')]
 	except Exception:
 		logging.getLogger(__name__).exception('Failed to render ring plots')
+		if return_fig:
+			return []
