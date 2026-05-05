@@ -1,16 +1,14 @@
 """
 setup.py – Stage 1: Configure & Run (or Load existing results).
 
-Two modes are available, controlled by a RadioItems toggle:
-  • "run"  – Full configuration form + "Run pipeline" button.
-  • "load" – Single directory input + "Load existing output" button.
-
-After a successful run or load the status section shows a link to the
-Explorer page.
+Both the pipeline configuration form and the load-path input are always
+visible.  After a successful run or load the status section shows links to
+the Data and Explorer pages.
 """
 
 import dash
 from dash import Input, Output, State, callback, dcc, html, no_update
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 
 from synco.dashboard.components.config_form import make_config_form
@@ -36,24 +34,6 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
                             className="text-muted mb-3",
                         ),
                     ]
-                )
-            ),
-
-            # ── Mode toggle ────────────────────────────────────────────────
-            dbc.Row(
-                dbc.Col(
-                    dbc.RadioItems(
-                        id="setup-mode-toggle",
-                        options=[
-                            {"label": "  Run pipeline",          "value": "run"},
-                            {"label": "  Load existing results", "value": "load"},
-                        ],
-                        value="load",
-                        inline=True,
-                        input_checked_class_name="bg-primary border-primary",
-                        className="mb-4",
-                    ),
-                    width=12,
                 )
             ),
 
@@ -85,7 +65,6 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
                         className="mb-4",
                     ),
                 ],
-                style={"display": "none"},
             ),
 
             # ── Load existing section ──────────────────────────────────────
@@ -166,17 +145,6 @@ def layout(**kwargs):  # noqa: ARG001  (Dash passes URL kwargs)
 # ---------------------------------------------------------------------------
 
 @callback(
-    Output("section-run",  "style"),
-    Output("section-load", "style"),
-    Input("setup-mode-toggle", "value"),
-)
-def toggle_sections(mode):
-    if mode == "run":
-        return {"display": "block"}, {"display": "none"}
-    return {"display": "none"}, {"display": "block"}
-
-
-@callback(
     Output("status-explorer-link", "children"),
     Input("store-results-dir",     "data"),
     Input("store-cell-fate-dir",   "data"),
@@ -200,9 +168,43 @@ def update_explorer_link(results_data, cell_fate_data):
                     size="sm",
                     className="ms-3",
                 ),
+                dbc.Button(
+                    [html.I(className="bi bi-bar-chart-line me-1"), "Open Explorer →"],
+                    href="/explorer",
+                    external_link=False,
+                    color="primary",
+                    size="sm",
+                    className="ms-2",
+                ),
             ],
             color="success",
             className="mb-0",
             is_open=True,
         )
     return None
+
+
+@callback(
+    Output("run-alert", "children",  allow_duplicate=True),
+    Output("run-alert", "color",     allow_duplicate=True),
+    Output("run-alert", "is_open",   allow_duplicate=True),
+    Input("store-pipeline-status",   "data"),
+    prevent_initial_call=True,
+)
+def update_run_alert_from_status(status_data):
+    """Mirror pipeline-thread status messages into the run-alert banner."""
+    if not status_data:
+        raise PreventUpdate
+    status  = (status_data or {}).get("status", "")
+    message = (status_data or {}).get("message", "")
+    if not message:
+        raise PreventUpdate
+    color_map = {"running": "info", "done": "success", "error": "danger"}
+    color = color_map.get(status, "secondary")
+    icon_map = {
+        "running": "bi bi-hourglass-split me-2",
+        "done":    "bi bi-check-circle-fill me-2",
+        "error":   "bi bi-exclamation-triangle-fill me-2",
+    }
+    icon = icon_map.get(status, "bi bi-info-circle me-2")
+    return [html.I(className=icon), message], color, True

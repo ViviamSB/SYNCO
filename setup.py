@@ -15,8 +15,9 @@ setup(
         'matplotlib',
         'seaborn',
         'plotly',
-        'numpy',
         'kaleido',
+        'streamlit>=1.28.0',
+        'streamlit-option-menu>=0.3.0',
     ],
     entry_points={
         'console_scripts': [

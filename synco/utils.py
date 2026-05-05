@@ -213,7 +213,7 @@ def save_fig(
         output_dir: PathLike,
         basename: str,
     formats: Optional[Iterable[str]] = None,
-    scale: int = 2,
+    scale: int = 3,
     verbose: bool = False,
     fig_type: Optional[str] = None,
     ) -> dict:

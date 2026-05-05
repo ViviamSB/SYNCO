@@ -8,3 +8,5 @@ PyYAML
 kaleido
 dash>=2.14
 dash-bootstrap-components>=1.5
+streamlit>=1.28.0
+streamlit-option-menu>=0.3.0

@@ -12,11 +12,13 @@ import logging
 import statistics
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 
 from synco.dashboard.plots._data import (
     load,
     roc_traces,
+    roc_metrics,
     check_empty,
 )
 from synco.dashboard.plot_registry import NoFilterMatchError
@@ -247,3 +249,168 @@ def plot_threshold_sweeps(
         legend=dict(orientation="v", x=1.02, y=1),
     )
     return [fig]
+
+
+# ---------------------------------------------------------------------------
+# AUC metric summary views
+# ---------------------------------------------------------------------------
+
+def plot_auc_bars(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Horizontal grouped bar chart of AUC-ROC / AUC-PR / F1 per cell line.
+
+    Sorted by AUC-ROC descending. Filterable by: cell_line.
+    """
+    from plotly.subplots import make_subplots
+
+    r   = load(results_dir)
+    df  = roc_metrics(r)
+    if df is None or df.empty:
+        return []
+
+    # normalise column names
+    col_map = {}
+    for src, dst in (("roc_auc", "AUC-ROC"), ("pr_auc", "AUC-PR"),
+                     ("f1_score", "F1 Score"), ("roc_auc_score", "AUC-ROC"),
+                     ("pr_auc_score", "AUC-PR")):
+        if src in df.columns and dst not in col_map:
+            col_map[src] = dst
+    df = df.rename(columns=col_map)
+
+    cl_col = next((c for c in ("cell_line", "Cell Line") if c in df.columns), None)
+    if cl_col is None:
+        return []
+
+    if filters and filters.get("cell_line"):
+        df = df[df[cl_col] == filters["cell_line"]]
+        check_empty(df, "cell_line filter")
+
+    metrics = [m for m in ("AUC-ROC", "AUC-PR", "F1 Score") if m in df.columns]
+    if not metrics:
+        return []
+
+    sort_col = metrics[0]
+    df = df.sort_values(sort_col, ascending=True)
+
+    palette = {"AUC-ROC": "#FFA15A", "AUC-PR": "#19D3F3", "F1 Score": "#AB63FA"}
+    fig = go.Figure()
+    for m in metrics:
+        fig.add_trace(go.Bar(
+            y=df[cl_col].astype(str),
+            x=pd.to_numeric(df[m], errors="coerce"),
+            name=m,
+            orientation="h",
+            marker_color=palette.get(m, "#aaa"),
+        ))
+    fig.update_layout(
+        title=dict(text="AUC-ROC / AUC-PR / F1 Score per Cell Line", x=0.5),
+        xaxis_title="Score",
+        yaxis_title="Cell Line",
+        barmode="group",
+        height=max(300, 30 * len(df) + 120),
+        margin=dict(l=160, r=20, t=60, b=60),
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+    )
+    return [fig]
+
+
+def plot_auc_summary(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """3 aggregated violins (F1, AUC-ROC, AUC-PR) across cell lines + summary stats table.
+
+    Filterable by: cell_line.
+    """
+    from plotly.subplots import make_subplots
+
+    r   = load(results_dir)
+    df  = roc_metrics(r)
+    if df is None or df.empty:
+        return []
+
+    col_map = {}
+    for src, dst in (("roc_auc", "AUC-ROC"), ("pr_auc", "AUC-PR"),
+                     ("f1_score", "F1 Score"), ("roc_auc_score", "AUC-ROC"),
+                     ("pr_auc_score", "AUC-PR")):
+        if src in df.columns and dst not in col_map:
+            col_map[src] = dst
+    df = df.rename(columns=col_map)
+
+    cl_col = next((c for c in ("cell_line", "Cell Line") if c in df.columns), None)
+
+    if filters and filters.get("cell_line") and cl_col:
+        df = df[df[cl_col] == filters["cell_line"]]
+        check_empty(df, "cell_line filter")
+
+    metric_conf = [
+        ("F1 Score", "#AB63FA"),
+        ("AUC-ROC",  "#FFA15A"),
+        ("AUC-PR",   "#19D3F3"),
+    ]
+    present = [(label, color) for label, color in metric_conf if label in df.columns]
+    if not present:
+        return []
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        row_heights=[0.65, 0.35],
+        vertical_spacing=0.08,
+        specs=[[{"type": "violin"}], [{"type": "table"}]],
+    )
+
+    for label, color in present:
+        vals = pd.to_numeric(df[label], errors="coerce").dropna()
+        hover = df.loc[vals.index, cl_col].astype(str) if cl_col else None
+        fig.add_trace(
+            go.Violin(
+                y=vals,
+                x=[label] * len(vals),
+                name=label,
+                box_visible=True,
+                meanline_visible=True,
+                points="all",
+                fillcolor=color,
+                opacity=0.7,
+                line_color="black",
+                hovertext=hover,
+                hovertemplate=(
+                    "<b>%{hovertext}</b><br>Score: %{y:.3f}<extra></extra>"
+                    if hover is not None else "%{y:.3f}<extra></extra>"
+                ),
+                showlegend=False,
+            ),
+            row=1, col=1,
+        )
+
+    # Summary statistics table
+    summary_rows = []
+    for label, _ in present:
+        vals = pd.to_numeric(df[label], errors="coerce").dropna()
+        summary_rows.append({
+            "Metric": label,
+            "n": len(vals),
+            "Mean": f"{vals.mean():.3f}",
+            "Median": f"{vals.median():.3f}",
+            "Std": f"{vals.std():.3f}",
+            "Min": f"{vals.min():.3f}",
+            "Max": f"{vals.max():.3f}",
+            ">0.5": int((vals > 0.5).sum()),
+        })
+    tbl = pd.DataFrame(summary_rows)
+    fig.add_trace(
+        go.Table(
+            header=dict(values=list(tbl.columns), font_size=12,
+                        align="center", fill_color="lightgrey"),
+            cells=dict(values=[tbl[c] for c in tbl.columns],
+                       font_size=11, align="center"),
+        ),
+        row=2, col=1,
+    )
+
+    fig.update_layout(
+        title=dict(text="AUC / F1 Score Distribution Across Cell Lines", x=0.5),
+        yaxis_title="Score",
+        height=640,
+        margin=dict(l=40, r=20, t=60, b=20),
+        template="plotly_white",
+    )
+    return [fig]
+

@@ -179,3 +179,73 @@ def plot_by_combination(results_dir: str, filters: dict | None = None) -> list[g
         sort_by="Accuracy",
     )
     return [fig]
+
+
+# ---------------------------------------------------------------------------
+# Additional single-tissue views via make_classification_plots
+# ---------------------------------------------------------------------------
+
+def _cell_line_figs(results_dir: str) -> list[go.Figure]:
+    """Return all figures from make_classification_plots for cell_line analysis."""
+    try:
+        from synco.plotting.classification import make_classification_plots
+        result = make_classification_plots(
+            results_dir, plots_dir=None, analysis_type="cell_line", return_fig=True
+        )
+        return [fig for fig, _ in (result or [])]
+    except Exception:
+        logger.exception("make_classification_plots (cell_line) failed for %s", results_dir)
+        return []
+
+
+def _combination_figs(results_dir: str) -> list[go.Figure]:
+    """Return all figures from make_classification_plots for combination analysis."""
+    try:
+        from synco.plotting.classification import make_classification_plots
+        result = make_classification_plots(
+            results_dir, plots_dir=None, analysis_type="combination", return_fig=True
+        )
+        return [fig for fig, _ in (result or [])]
+    except Exception:
+        logger.exception("make_classification_plots (combination) failed for %s", results_dir)
+        return []
+
+
+def plot_cell_line_heatmap(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Acc / Recall / Precision and F1 / AUC-ROC / AUC-PR heatmaps per cell line.
+
+    No filter support — shows all cell lines as an overview.
+    Figures at index 1 (Acc/Rec/Prec) and 3 (F1/AUC) from make_classification_plots.
+    """
+    figs = _cell_line_figs(results_dir)
+    return [figs[i] for i in (1, 3) if i < len(figs)]
+
+
+def plot_cell_line_boxes(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Acc / Recall / Precision and F1 / AUC-ROC / AUC-PR box plots across cell lines.
+
+    No filter support — shows distribution over all cell lines.
+    Figures at index 4 (Acc/Rec/Prec) and 5 (F1/AUC) from make_classification_plots.
+    """
+    figs = _cell_line_figs(results_dir)
+    return [figs[i] for i in (4, 5) if i < len(figs)]
+
+
+def plot_combination_heatmap(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Acc / Recall / Precision heatmap per drug combination.
+
+    No filter support — shows all combinations as an overview.
+    Figure at index 1 from make_classification_plots (combination analysis).
+    """
+    figs = _combination_figs(results_dir)
+    return [figs[1]] if len(figs) > 1 else []
+
+
+def plot_combination_boxes(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Acc / Recall / Precision box plots across drug combinations.
+
+    No filter support — shows distribution over all combinations.
+    Figure at index 2 from make_classification_plots (combination analysis).
+    """
+    figs = _combination_figs(results_dir)
+    return [figs[2]] if len(figs) > 2 else []

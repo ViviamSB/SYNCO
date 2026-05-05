@@ -102,6 +102,11 @@ def create_app(debug: bool = False) -> dash.Dash:
                 storage_type="memory",
                 data={"cell_line": None, "combination": None, "drug": None, "profile": None},
             ),
+            dcc.Store(
+                id="store-filters-dirty",
+                storage_type="memory",
+                data=False,
+            ),
         ],
         id="global-stores",
     )

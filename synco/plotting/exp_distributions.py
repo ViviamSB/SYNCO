@@ -116,7 +116,18 @@ def _prepare_experimental_counts(experimental_input, threshold=0):
             "Experimental data not found in results_dir. "
             "Experimental distribution plots require an experimental data file."
         )
-
+    
+    # DEBUG: Find the experimental data file name and path for logging
+    if experimental_df is not None:
+        experimental_path = None
+        for key in ['experimental_full_df.csv', 'experimental_drug_names_synergies_df.csv', 'experimental_matrix_df.csv', 'experimental_window_df.csv']:
+            if key in experimental_input['files']:
+                experimental_path = experimental_input['files'][key]
+                break
+        print(f"Loaded experimental data from: {experimental_path}")
+        print(f"Experimental data shape: {experimental_df.shape}")
+        
+        
     # Remove rows with missing PD information and ensure we have a copy
     experimental_df = experimental_df.dropna(subset=['PD_A', 'PD_B']).copy()
 
@@ -281,9 +292,9 @@ def _style_pairwise_colors(scatter_data, selected: tuple):
             mech3 = selected[2]
 
     # Colors: mech1, mech2, both, and neutral for others
-    color_mech1 = '#636EFA'
-    color_mech2 = '#FC7299'
-    color_mech3 = "#F887F8"
+    color_mech1 = "#129AB3"
+    color_mech2 = '#F09138'
+    color_mech3 = "#FC7299"
     neutral_color = "#303030"
 
     # Collect unique mechanism combinations from the scatter data
@@ -321,7 +332,7 @@ def _style_pairwise_colors(scatter_data, selected: tuple):
 # PLOT
 #----------------------------------------------------------------------
 
-def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, selected_mechanism, mechanism_combi_color, show=False, height=None, width=None):
+def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, selected_mechanism, mechanism_combi_color, show=False, height=None, width=None, frequency_percentage_xrange=100):
     """Plot two stacked bar plots of synergy counts by inhibitor combination and by cell line.
     """
     fig = make_subplots(
@@ -365,13 +376,13 @@ def _plot_stackedbars_synergy_counts(synergy_counts, inhibitor_synergy_summary, 
     )
 
     fig.update_xaxes(title_text='Number of combinations across the drug screen', row=1, col=1)
-    fig.update_yaxes(title_text='Inhibitor combination', row=1, col=1)
+    fig.update_yaxes(title_text='Tested combination', row=1, col=1)
     fig.update_xaxes(title_text='Number of cell lines', row=1, col=2)
 
     # Add percentage text outside the barplot
     for i in range(len(inhibitor_synergy_summary)):
         fig.add_annotation(
-            x=106,
+            x=frequency_percentage_xrange,
             y=inhibitor_synergy_summary['inhibitor_combination'].iloc[i],
             text=f"{inhibitor_synergy_summary['n_synergies_per_inhibitor'].iloc[i] / inhibitor_synergy_summary['total_combinations_per_inhibitor'].iloc[i] * 100:.1f}%",
             showarrow=False,
@@ -644,7 +655,8 @@ def make_experimental_distribution_plots(results_dir, plots_dir, show=False, deb
                                         threshold: float=0, selected_mechanism: tuple=None,
                                         distribution_size: tuple=None,
                                         stackedbar_size: tuple=None,
-                                        return_fig: bool = False
+                                        return_fig: bool = False,
+                                        percentage_x: int = 120
                                         ):
     """Make experimental distribution plots: load -> process -> plot
     """
@@ -672,6 +684,7 @@ def make_experimental_distribution_plots(results_dir, plots_dir, show=False, deb
         show=show,
         height=height_sb,
         width=width_sb,
+        frequency_percentage_xrange=percentage_x
     )
 
     height_dist, width_dist = distribution_size if distribution_size else (800, 1000)

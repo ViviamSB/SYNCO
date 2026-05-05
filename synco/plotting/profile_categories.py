@@ -183,49 +183,99 @@ def _prepare_dimensions(profilecat_df, combicat_df):
     """
     has_mechanism = not combicat_df['Mechanism_A'].isna().all()
 
+    # Define the mechanism order array
+    mechanism_order = sorted(profilecat_df['Mechanism'].dropna().unique())
+
+    # Map each mechanism to its compounds, inhibitor groups, and PDs in the same order
+    def ordered_unique(series, order_by):
+        # Returns unique values of `series`, ordered by the order of `order_by`
+        df = pd.DataFrame({'val': series, 'order': order_by})
+        # Drop rows where either is nan
+        df = df.dropna(subset=['val', 'order'])
+        # Sort by order, then drop duplicates keeping the first occurrence
+        return df.sort_values('order')['val'].drop_duplicates().tolist()
+
+    compound_order = ordered_unique(profilecat_df['compound'], profilecat_df['Mechanism'])
+    inhibitorgroup_order = ordered_unique(profilecat_df['InhibitorGroup'], profilecat_df['Mechanism'])
+    PD_order = ordered_unique(profilecat_df['PD'], profilecat_df['Mechanism'])
+
     compound_dim = go.parcats.Dimension(
         values=profilecat_df['compound'],
         label='Compound',
+        categoryorder='array',
+        categoryarray=compound_order if has_mechanism else None
     )
     inhibitorgroup_dim = go.parcats.Dimension(
         values=profilecat_df['InhibitorGroup'],
         label='Inhibitor Group',
+        categoryorder='array',
+        categoryarray=inhibitorgroup_order if has_mechanism else None
     )
     PD_dim = go.parcats.Dimension(
         values=profilecat_df['PD'],
-        label='PD',
+        label='In silico Profile',
+        categoryorder='array',
+        categoryarray=PD_order if has_mechanism else None
     )
 
     if has_mechanism:
         mechanism_dim = go.parcats.Dimension(
             values=profilecat_df['Mechanism'],
             label='Mechanism',
+            categoryorder='array',
+            categoryarray=mechanism_order,
         )
         prof_dimensions = [compound_dim, inhibitorgroup_dim, PD_dim, mechanism_dim]
     else:
         prof_dimensions = [compound_dim, inhibitorgroup_dim, PD_dim]
 
-    drugcombi_dim = go.parcats.Dimension(
-        values=combicat_df['drug_combination'],
-        label='Drug Combination',
-    )
-    PD_combi_dim = go.parcats.Dimension(
-        values=combicat_df['PD_combination'],
-        label='PD Combination',
-    )
-    inhibitorcombi_dim = go.parcats.Dimension(
-        values=combicat_df['inhibitor_combination'],
-        label='Inhibitor Combination',
-    )
-
+    # Order categories by mechanism combination array, and apply the same order to each dimension
     if has_mechanism:
+        # Get unique mechanism combinations in the order they appear
+        mechanismcombi_order = sorted(combicat_df['mech_combination'].dropna().unique(), key=lambda x: combicat_df['mech_combination'].dropna().tolist().index(x))
+
+        # Map each mechanism combination to its drug and inhibitor combinations, ordered by the mechanism combination order
+        # Use function ordered_unique to get the unique values of drug_combination and inhibitor_combination ordered by mech_combination
+        drugcombi_order = ordered_unique(combicat_df['drug_combination'], combicat_df['mech_combination'])
+        PD_combi_order = ordered_unique(combicat_df['PD_combination'], combicat_df['mech_combination'])
+        inhibitorcombi_order = ordered_unique(combicat_df['inhibitor_combination'], combicat_df['mech_combination'])
+
+
+        drugcombi_dim = go.parcats.Dimension(
+            values=combicat_df['drug_combination'],
+            label='Drug',
+            categoryorder='array',
+            categoryarray=drugcombi_order
+        )
+        PD_combi_dim = go.parcats.Dimension(
+            values=combicat_df['PD_combination'],
+            label='Profile',
+            categoryorder='array',
+            categoryarray=PD_combi_order
+        )
+        inhibitorcombi_dim = go.parcats.Dimension(
+            values=combicat_df['inhibitor_combination'],
+            label='Inhibitor',
+            categoryorder='array',
+            categoryarray=inhibitorcombi_order
+        )
         mechanismcombi_dim = go.parcats.Dimension(
             values=combicat_df['mech_combination'],
-            label='Mechanism Combination',
+            label='Mechanism',
+            categoryorder='array',
+            categoryarray=mechanismcombi_order
         )
-        combi_dimensions = [drugcombi_dim, inhibitorcombi_dim, PD_combi_dim, mechanismcombi_dim]
+        combi_dimensions = [drugcombi_dim, inhibitorcombi_dim, mechanismcombi_dim]
     else:
-        combi_dimensions = [drugcombi_dim, PD_combi_dim, inhibitorcombi_dim]
+        drugcombi_dim = go.parcats.Dimension(
+            values=combicat_df['drug_combination'],
+            label='Drug',
+        )
+        inhibitorcombi_dim = go.parcats.Dimension(
+            values=combicat_df['inhibitor_combination'],
+            label='Inhibitor',
+        )
+        combi_dimensions = [drugcombi_dim, inhibitorcombi_dim]
 
     return prof_dimensions, combi_dimensions
 
@@ -235,19 +285,38 @@ def _style_dimensions(profilecat_df, combicat_df):
     Colors by Mechanism when mechanism data is available; falls back to
     Inhibitor Group coloring when no mechanism dict was loaded.
     """
-    mechanism_colors = px.colors.qualitative.Pastel + px.colors.qualitative.Vivid
+    # Use new mecha_palette to style plot by mechanism
+    mecha_palette = {
+        "Apoptosis": "#FF97FF",
+        "Cell cycle": "#636EFA", 
+        "Not mapped": "#3C6152", 
+        "DNA repair": "#F09138",
+        "MAPK": "#BD7EF7", 
+        "PI3K/AKT/MTOR": "#16B7D3",
+        "RTK": "#FC7299",
+        "WNT": "#71C715",
+        "Other": "#FF6F61",
+        "Chemotherapy": "#B1B1B1",
+    }
+
     has_mechanism = not profilecat_df['Mechanism'].isna().all()
 
     # Profile chart: color by Mechanism if available, else by Inhibitor Group
-    style_col = 'Mechanism' if has_mechanism else 'InhibitorGroup'
-    unique_vals = profilecat_df[style_col].dropna().unique()
-    color_map = {val: mechanism_colors[i % len(mechanism_colors)] for i, val in enumerate(unique_vals)}
-    line_prof_colors = profilecat_df[style_col].map(color_map).fillna('#cccccc')
+    if has_mechanism:
+        style_col = 'Mechanism'
+        color_map = {val: mecha_palette.get(val, '#cccccc') for val in profilecat_df[style_col].dropna().unique()}
+        line_prof_colors = profilecat_df[style_col].map(color_map).fillna('#cccccc')
+    else:
+        style_col = 'InhibitorGroup'
+        unique_vals = profilecat_df[style_col].dropna().unique()
+        default_colors = px.colors.qualitative.Pastel + px.colors.qualitative.Vivid
+        color_map = {val: default_colors[i % len(default_colors)] for i, val in enumerate(unique_vals)}
+        line_prof_colors = profilecat_df[style_col].map(color_map).fillna('#cccccc')
 
-    # Combination chart: color by mech_combination (already falls back to
-    # inhibitor_combination when no mechanism dict was loaded)
+    # Combination chart: color by unique mechanism combinations, not by inhibitors
     unique_combi = combicat_df['mech_combination'].dropna().unique()
-    combi_color_map = {val: mechanism_colors[i % len(mechanism_colors)] for i, val in enumerate(unique_combi)}
+    default_colors = px.colors.qualitative.Pastel + px.colors.qualitative.Vivid
+    combi_color_map = {val: default_colors[i % len(default_colors)] for i, val in enumerate(unique_combi)}
     line_combi_colors = combicat_df['mech_combination'].map(combi_color_map).fillna('#cccccc')
 
     return line_prof_colors, line_combi_colors

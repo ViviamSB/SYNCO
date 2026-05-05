@@ -33,15 +33,15 @@ def _style_moa_colors(results: Optional[dict] = None, group_names: Optional[List
 	"""
 
 	palette = [
-		"#16B7D3",
-		"#71C715",
-		"#FC7299",
-		"#F09138",
-		"#636EFA",
 		"#FF97FF",
+		"#636EFA",
+		"#FF6F61",
+		"#F09138",
 		"#BD7EF7",
 		"#72B7B2",
-		"#FF6F61",
+		"#16B7D3",
+		"#FC7299",
+		"#71C715",
 		"#0C40A0",
 		"#FFDE4D",
 		"#DD4477",
@@ -411,16 +411,23 @@ def plot_violin_scatter(predictions_melted: pd.DataFrame,
 	for fam in family_order:
 		family_colors[fam] = moa_colors.get(fam, moa_colors.get('Unlabeled', '#757575'))
 
-	fig = make_subplots(rows=1, cols=2, subplot_titles=("Synergy distributions by mechanism", "Pair-level magnitude vs consistency"),
-						specs=[[{"type": "violin"}, {"type": "xy"}]],
-						column_widths=[0.6, 0.4], horizontal_spacing=0.1)
+	fig = make_subplots(rows=2, cols=1, subplot_titles=("Synergy distributions by mechanism", "Pair-level magnitude vs consistency"),
+						specs=[[{"type": "violin"}],
+			 					[{"type": "xy"}]],
+						row_heights=[0.4, 0.6],
+						vertical_spacing=0.1)
+	fig.update_layout(legend_font_size=14)
+	fig.update_xaxes(tickfont=dict(size=14), title_font=dict(size=16))
+	fig.update_yaxes(tickfont=dict(size=14), title_font=dict(size=16))
+	fig.update_annotations(font=dict(size=16))
 
 	for mech in order_mech:
 		yvals = stacked.loc[stacked["mechanism"] == mech, "synergy"].dropna().values
 		if len(yvals) == 0:
 			continue
-		fig.add_trace(go.Violin(y=yvals, name=mech, box_visible=True, meanline_visible=False,
+		fig.add_trace(go.Violin(y=yvals, name=mech, box_visible=True, meanline_visible=True, spanmode="hard",
 								 points="all", marker=dict(color=moa_colors.get(mech, '#cccccc')), showlegend=False), row=1, col=1)
+
 
 	if 'selected' not in pair_stats.columns and PD_combi is not None:
 		pair_stats['selected'] = pair_stats.apply(lambda r: f"{r['PD_A']} | {r['PD_B']}" in PD_combi, axis=1)
@@ -433,26 +440,27 @@ def plot_violin_scatter(predictions_melted: pd.DataFrame,
 		sel = sub[sub['selected']]
 		if not not_sel.empty:
 			fig.add_trace(go.Scatter(x=not_sel['median'], y=not_sel['consistency'], mode='markers',
-									 marker=dict(size=10, color=family_colors[fam], line=dict(width=0.5, color='white')),
-									 name=fam, showlegend=True), row=1, col=2)
+									 marker=dict(size=14, color=family_colors[fam], opacity=0.8, line=dict(width=1, color='white')),
+									 name=fam, showlegend=True), row=2, col=1)
 		if not sel.empty:
 			fig.add_trace(go.Scatter(x=sel['median'], y=sel['consistency'], mode='markers',
-									 marker=dict(size=13, color=family_colors[fam], line=dict(width=1.2, color='white'), symbol='diamond'),
-									 name=fam + ' (selected)', showlegend=True), row=1, col=2)
+									 marker=dict(size=18, color=family_colors[fam], line=dict(width=2, color="#3A3A3A"), symbol='diamond'),
+									 name=fam + ' (selected)', showlegend=True), row=2, col=1)
 
-	fig.add_vline(x=0, line_dash="dash", line_color="#b6b5b5", row=1, col=2)
-	fig.add_hline(y=0, line_dash="dash", line_color="#b6b5b5", row=1, col=2)
+	fig.add_vline(x=0, line_dash="dash", line_color="#b6b5b5", row=2, col=1)
+	fig.add_hline(y=0, line_dash="dash", line_color="#b6b5b5", row=2, col=1)
 
-	fig.update_layout(plot_bgcolor="#eeeeee", height=height or 600, width=width or 1400)
+	fig.update_layout(plot_bgcolor="#eeeeee", height=height or 1600, width=width or 1000)
 	fig.update_xaxes(title_text="", row=1, col=1)
 	fig.update_yaxes(title_text="Synergy score", row=1, col=1)
-	fig.update_xaxes(title_text="Median synergy (across cell lines)", row=1, col=2)
-	fig.update_yaxes(title_text="Consistency (-IQR)", row=1, col=2)
+	fig.update_xaxes(title_text="Median synergy (across cell lines)", row=2, col=1)
+	fig.update_yaxes(title_text="Consistency (-IQR)", row=2, col=1)
 
-	fig.add_annotation(dict(x=-0.05, y=1.1, xref='paper', yref='paper', text='A', showarrow=False,
-							font=dict(size=28, family='Arial', color='black'), xanchor='left', yanchor='top'))
-	fig.add_annotation(dict(x=0.58, y=1.1, xref='paper', yref='paper', text='B', showarrow=False,
-							font=dict(size=28, family='Arial', color='black'), xanchor='left', yanchor='top'))
+	# fig.add_annotation(dict(x=-0.05, y=1.1, xref='paper', yref='paper', text='A', showarrow=False,
+	# 						font=dict(size=28, family='Arial', color='black'), xanchor='left', yanchor='top'))
+	# fig.add_annotation(dict(x=0.58, y=1.1, xref='paper', yref='paper', text='B', showarrow=False,
+	# 						font=dict(size=28, family='Arial', color='black'), xanchor='left', yanchor='top'))
+
 
 	if show:
 		try:

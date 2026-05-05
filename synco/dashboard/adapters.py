@@ -77,11 +77,32 @@ def fig_to_component(fig, fig_type: str):
 # Gallery card builder
 # ---------------------------------------------------------------------------
 
-def _build_plot_card(spec: PlotSpec, existing_components: list) -> dbc.Card:
+# Ordered metadata for filter-compatibility badges shown in each card header.
+# key → (Bootstrap-Icons class, short label, badge colour when active)
+_FILTER_META: dict[str, tuple[str, str, str]] = {
+    "cell_line":   ("bi-grid-1x2",        "Cell line",  "primary"),
+    "combination": ("bi-bezier2",          "Combo",      "success"),
+    "drug":        ("bi-eyedropper",       "Drug",       "info"),
+    "profile":     ("bi-bar-chart-steps",  "Profile",    "warning"),
+}
+
+
+def _build_plot_card(
+    spec: PlotSpec,
+    existing_components: list,
+    active_filters: dict | None = None,
+) -> dbc.Card:
     """Build one gallery card for *spec*.
 
     Cards always start empty (no cache); the user clicks "Render" to
     trigger the MATCH callback which populates ``card-output``.
+
+    Parameters
+    ----------
+    spec               : The ``PlotSpec`` to render.
+    existing_components: Pre-rendered components (unused — kept for API compat).
+    active_filters     : Current ``store-filters`` value; used to colour the
+                         filter-compatibility badges.
     """
     btn = dbc.Button(
         [html.I(className="bi bi-play-fill me-1"), "Render"],
@@ -91,18 +112,57 @@ def _build_plot_card(spec: PlotSpec, existing_components: list) -> dbc.Card:
         n_clicks=0,
     )
 
+    hide_btn = dbc.Button(
+        [html.I(className="bi bi-chevron-up me-1"), "Hide"],
+        id={"type": "card-hide-btn", "index": spec.plot_id},
+        color="light",
+        size="sm",
+        n_clicks=0,
+        className="ms-1",
+    )
+
+    # ── Filter-compatibility pill row ─────────────────────────────────────
+    pills: list = []
+    af = active_filters or {}
+    if spec.supported_filters:
+        for key, (icon, label, color) in _FILTER_META.items():
+            if key not in spec.supported_filters:
+                continue
+            is_active = bool(af.get(key))
+            pills.append(
+                dbc.Badge(
+                    [html.I(className=f"bi {icon} me-1"), label],
+                    color=color if is_active else "light",
+                    text_color=None if is_active else "dark",
+                    className="me-1 border",
+                    pill=True,
+                    style={"fontSize": "0.65rem"},
+                )
+            )
+    else:
+        pills = [
+            dbc.Badge(
+                "No filters",
+                color="light",
+                text_color="secondary",
+                className="border",
+                style={"fontSize": "0.65rem"},
+            )
+        ]
+
     header = dbc.CardHeader(
         [
             html.Div(
                 [
                     html.Span(spec.label, className="fw-semibold me-2"),
                     html.Small(spec.description, className="text-muted"),
+                    html.Div(pills, className="mt-1"),
                 ],
                 className="flex-grow-1",
             ),
-            btn,
+            html.Div([btn, hide_btn], className="d-flex align-items-center ms-2"),
         ],
-        className="d-flex justify-content-between align-items-center py-2",
+        className="d-flex justify-content-between align-items-start py-2",
     )
 
     body_content = existing_components if existing_components else [
@@ -118,6 +178,7 @@ def _build_plot_card(spec: PlotSpec, existing_components: list) -> dbc.Card:
     body = dbc.CardBody(
         html.Div(body_content, id={"type": "card-output", "index": spec.plot_id}),
         className="p-2",
+        id={"type": "card-body", "index": spec.plot_id},
     )
 
     return dbc.Card([header, body], className="mb-3 shadow-sm")
@@ -188,7 +249,7 @@ def build_gallery(
 
     # ── One card per PlotSpec (always starts empty) ───────────────────────
     for spec in specs:
-        components.append(_build_plot_card(spec, []))
+        components.append(_build_plot_card(spec, [], active_filters=active_filters))
 
     return components
 

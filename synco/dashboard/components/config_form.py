@@ -209,8 +209,9 @@ def _section_comparison() -> dbc.AccordionItem:
                         dbc.Select(
                             id=FORM_FIELD_IDS["analysis_mode"],
                             options=[
-                                {"label": "Cell line",            "value": "cell_line"},
-                                {"label": "Inhibitor combination","value": "inhibitor_combination"},
+                                {"label": "Cell line",                    "value": "cell_line"},
+                                {"label": "Inhibitor combination",        "value": "inhibitor_combination"},
+                                {"label": "Both (cell line + inhibitor)", "value": "both"},
                             ],
                             value="cell_line",
                             persistence=True,
@@ -350,14 +351,29 @@ def _section_advanced() -> dbc.AccordionItem:
             dbc.Label("Advance overrides (JSON)"),
             dbc.Textarea(
                 id=FORM_FIELD_IDS["advance_json"],
-                placeholder='{}',
+                placeholder=(
+                    '{\n'
+                    '  "data_loading": {\n'
+                    '    "synergy_filename": "synergy_data_bliss.csv"\n'
+                    '  }\n'
+                    '}'
+                ),
                 style={"fontFamily": "monospace", "height": "120px"},
                 persistence=True,
                 persistence_type="session",
             ),
             dbc.FormText(
-                "Optional JSON dict to override step-level defaults "
-                "(merged into the \"advance\" config section).",
+                [
+                    "Override step-level defaults using nested JSON. "
+                    "Top-level keys must be step names: ",
+                    html.Code("data_loading"),
+                    ", ",
+                    html.Code("compare"),
+                    ", etc. "
+                    "Example: to change the synergy file use ",
+                    html.Code('{"data_loading": {"synergy_filename": "my_file.csv"}}'),
+                    ".",
+                ],
                 color="secondary",
             ),
         ],

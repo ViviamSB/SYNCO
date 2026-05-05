@@ -63,9 +63,10 @@ def _scan_multi_tissue_root(path: Path) -> list:
 # Shared state for background thread
 # ---------------------------------------------------------------------------
 _state: dict = {
-    "status":  "idle",   # "idle" | "running" | "done" | "error"
-    "message": "",
-    "results_dir": None,
+    "status":       "idle",   # "idle" | "running" | "done" | "error"
+    "message":      "",
+    "results_dir":  None,
+    "cell_fate_dir": None,
 }
 _lock = threading.Lock()
 
@@ -174,14 +175,43 @@ def _validate_paths(base, pipeline_runs, input_path, output) -> str | None:
 # Background runner
 # ---------------------------------------------------------------------------
 
-def _run_pipeline_background(config: dict):
+def _run_pipeline_background(config: dict, cell_fate_dir: str = ""):
     """Target function for the background thread."""
+    raw_mode = config.get("compare", {}).get("analysis_mode", "cell_line")
+    modes_to_run = (
+        ["cell_line", "inhibitor_combination"]
+        if raw_mode == "both"
+        else [raw_mode]
+    )
+
     _set_state(status="running", message="Pipeline running…")
     try:
-        final_config = build_pipeline_config(config)
-        run_pipeline(final_config, verbose=final_config.get("general", {}).get("verbose", False))
-        results_dir = final_config.get("paths", {}).get("output", "")
-        _set_state(status="done", message="Pipeline complete!", results_dir=results_dir)
+        results_dir = ""
+        for i, mode in enumerate(modes_to_run):
+            cfg = {
+                **config,
+                "compare": {**config.get("compare", {}), "analysis_mode": mode},
+            }
+            _set_state(
+                status="running",
+                message=(
+                    f"Running {mode.replace('_', ' ')} analysis "
+                    f"({i + 1}/{len(modes_to_run)})…"
+                ),
+            )
+            final_config = build_pipeline_config(cfg)
+            run_pipeline(
+                final_config,
+                verbose=final_config.get("general", {}).get("verbose", False),
+            )
+            results_dir = final_config.get("paths", {}).get("output", "")
+
+        _set_state(
+            status="done",
+            message="Pipeline complete!",
+            results_dir=results_dir,
+            cell_fate_dir=cell_fate_dir,
+        )
     except Exception as exc:
         logger.exception("Pipeline failed")
         _set_state(status="error", message=str(exc))
@@ -226,6 +256,7 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
         State(FORM_FIELD_IDS["write_compare_outputs"],     "value"),
         State(FORM_FIELD_IDS["write_roc_outputs"],         "value"),
         State(FORM_FIELD_IDS["advance_json"],     "value"),
+        State(FORM_FIELD_IDS["cell_fate_dir"],    "value"),
         prevent_initial_call=True,
     )
     def start_pipeline(
@@ -238,6 +269,7 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
         oc_profiles, oc_exp_full, oc_pred_full,
         oc_syn_pred, oc_compare, oc_roc,
         advance_json_raw,
+        cell_fate_dir_val,
     ):
         if not n_clicks:
             raise PreventUpdate
@@ -260,10 +292,10 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
             advance_json_raw,
         )
 
-        _set_state(status="idle", message="", results_dir=None)
+        _set_state(status="idle", message="", results_dir=None, cell_fate_dir=None)
         thread = threading.Thread(
             target=_run_pipeline_background,
-            args=(config,),
+            args=(config, cell_fate_dir_val or ""),
             daemon=True,
         )
         thread.start()
@@ -278,8 +310,9 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
     # 2.  Poll pipeline status (driven by dcc.Interval)
     # ------------------------------------------------------------------
     @app.callback(
-        Output("store-pipeline-status", "data",   allow_duplicate=True),
-        Output("store-results-dir",     "data",   allow_duplicate=True),
+        Output("store-pipeline-status", "data",     allow_duplicate=True),
+        Output("store-results-dir",     "data",     allow_duplicate=True),
+        Output("store-cell-fate-dir",   "data",     allow_duplicate=True),
         Output("poll-interval",         "disabled", allow_duplicate=True),
         Input("poll-interval",          "n_intervals"),
         prevent_initial_call=True,
@@ -289,21 +322,25 @@ def register_pipeline_callbacks(app: dash.Dash) -> None:
         status = state["status"]
 
         if status == "done":
-            results = {"results_dir": state.get("results_dir")}
+            cf = state.get("cell_fate_dir")
+            cell_fate_out = {"cell_fate_dir": cf} if cf else no_update
             return (
                 {"status": "done", "message": state["message"]},
-                results,
+                {"results_dir": state.get("results_dir")},
+                cell_fate_out,
                 True,   # disable interval
             )
         if status == "error":
             return (
                 {"status": "error", "message": state["message"]},
                 no_update,
+                no_update,
                 True,   # disable interval
             )
         # Still running
         return (
             {"status": "running", "message": state["message"]},
+            no_update,
             no_update,
             False,
         )

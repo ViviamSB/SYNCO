@@ -7,10 +7,11 @@ Sidebar layout
 │  Tissue                              │
 │  [ — All tissues — ▼ ]             │  (populated by callback)
 │ ─────────────────────────────────────│
-│  Filters (optional)                  │
-│  Cell line / Combination / Drug /    │
-│  Profile dropdowns                   │
+│  Filters for: <active tab>           │
+│  Only dropdowns relevant to the      │
+│  current tab are shown               │
 │ ─────────────────────────────────────│
+│  ⚠  Filters changed banner           │  (shown when dirty)
 │  [ Explore ▶ ]  [ Reset ]           │
 └──────────────────────────────────────┘
 
@@ -54,11 +55,7 @@ def layout(**kwargs):  # noqa: ARG001
 
                 html.Hr(className="my-2"),
 
-                # ── Filters (optional) ───────────────────────────────────
-                html.Small(
-                    [html.I(className="bi bi-funnel me-1 text-muted"), "Filters (optional)"],
-                    className="fw-semibold d-block mb-1",
-                ),
+                # ── Filters (tab-aware, populated by callback) ───────────
                 html.Div(
                     id="filter-container",
                     children=html.Small(
@@ -66,6 +63,9 @@ def layout(**kwargs):  # noqa: ARG001
                         className="text-muted",
                     ),
                 ),
+
+                # ── Stale-filter notice (shown by callback when dirty) ────
+                html.Div(id="filter-stale-notice"),
 
                 html.Hr(className="my-2"),
 

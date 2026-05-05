@@ -16,7 +16,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from synco.dashboard.plots._data import (
-    RING_COLORS,
     check_empty,
     load,
     comparison,
@@ -28,6 +27,16 @@ from synco.dashboard.plots._data import (
 from synco.dashboard.plot_registry import NoFilterMatchError
 
 logger = logging.getLogger(__name__)
+
+# Ring colour palette — matches cross-tissue standards
+_RING_COLORS = {
+    "Match":    "royalblue",
+    "Mismatch": "#D94602",
+    "TP":       "#458cff",
+    "TN":       "#6db0ff",
+    "FP":       "#FA7F2E",
+    "FN":       "#FDAA65",
+}
 
 # Normalised column aliases
 _TP_COLS = ("True Positive", "True Positives", "TP")
@@ -86,57 +95,78 @@ def _aggregate_nested_donut(
     tp: float, tn: float, fp: float, fn: float,
     title: str = "Aggregate Performance Ring",
 ) -> go.Figure:
-    """Build a nested donut: outer = Match/Mismatch, inner = TP/TN/FP/FN."""
+    """Build a nested donut: outer = Match/Mismatch, inner = TP/TN/FP/FN.
+
+    Counter-clockwise order (Match data first), centered domains.
+    """
     match    = tp + tn
     mismatch = fp + fn
     total    = match + mismatch
-    recall   = tp / (tp + fn) if (tp + fn) > 0 else float("nan")
-    accuracy = match / total if total > 0 else float("nan")
-    precision = tp / (tp + fp) if (tp + fp) > 0 else float("nan")
+    recall      = tp / (tp + fn)       if (tp + fn) > 0 else float("nan")
+    specificity = tn / (tn + fp)       if (tn + fp) > 0 else float("nan")
+    accuracy    = match / total        if total > 0     else float("nan")
+    precision   = tp / (tp + fp)       if (tp + fp) > 0 else float("nan")
+    bal_acc     = (recall + specificity) / 2 \
+        if not (math.isnan(recall) or math.isnan(specificity)) else float("nan")
+
+    def _fmt(v):
+        return f"{v:.3f}" if not math.isnan(v) else "–"
 
     fig = go.Figure()
 
-    # Outer ring: Match / Mismatch
+    # Outer ring: Match / Mismatch — centered, counter-clockwise
     fig.add_trace(go.Pie(
         values=[match, mismatch],
         labels=["Match", "Mismatch"],
         hole=0.65,
-        marker_colors=[RING_COLORS["Match"], RING_COLORS["Mismatch"]],
-        domain={"x": [0, 1], "y": [0, 1]},
+        marker_colors=[_RING_COLORS["Match"], _RING_COLORS["Mismatch"]],
+        domain={"x": [0.05, 0.95], "y": [0.05, 0.95]},
         name="Outer",
+        direction="counterclockwise",
+        sort=False,
+        rotation=90,
         hovertemplate="<b>%{label}</b><br>Count: %{value:,}<br>%{percent}<extra></extra>",
         showlegend=True,
         textposition="outside",
     ))
 
-    # Inner ring: TP / TN / FP / FN
+    # Inner ring: TP / TN / FP / FN — centered within outer, same direction
     fig.add_trace(go.Pie(
         values=[tp, tn, fp, fn],
         labels=["TP", "TN", "FP", "FN"],
         hole=0.4,
-        marker_colors=[RING_COLORS["TP"], RING_COLORS["TN"], RING_COLORS["FP"], RING_COLORS["FN"]],
-        domain={"x": [0.175, 0.825], "y": [0.175, 0.825]},
+        marker_colors=[
+            _RING_COLORS["TP"], _RING_COLORS["TN"],
+            _RING_COLORS["FP"], _RING_COLORS["FN"],
+        ],
+        domain={"x": [0.28, 0.72], "y": [0.23, 0.77]},
         name="Inner",
+        direction="counterclockwise",
+        sort=False,
+        rotation=90,
         hovertemplate="<b>%{label}</b><br>Count: %{value:,}<br>%{percent}<extra></extra>",
         showlegend=True,
         textposition="inside",
     ))
 
-    # Centre annotation
+    # Metrics in the center hole
     centre_text = (
-        f"<b>Recall</b><br>{recall:.3f}"
-        f"<br><br><b>Accuracy</b><br>{accuracy:.3f}"
-        f"<br><br><b>Precision</b><br>{precision:.3f}"
-    ) if not math.isnan(recall) else "No data"
+        f"<b>Acc</b>: {_fmt(accuracy)}"
+        f"<br><b>Rec</b>: {_fmt(recall)}"
+        f"<br><b>Prec</b>: {_fmt(precision)}"
+        f"<br><b>Bal</b>: {_fmt(bal_acc)}"
+    ) if not math.isnan(accuracy) else "No data"
 
     fig.update_layout(
         title=dict(text=title, x=0.5),
         annotations=[dict(
             text=centre_text,
             x=0.5, y=0.5,
-            font_size=12,
+            font_size=11,
             showarrow=False,
             align="center",
+            xanchor="center",
+            yanchor="middle",
         )],
         height=480,
         margin=dict(l=20, r=20, t=60, b=20),
@@ -184,8 +214,13 @@ def _donut_grid(df: pd.DataFrame, id_col: str, title: str, n_cols: int = 5) -> g
                 values=[tp, tn, fp, fn],
                 labels=["TP", "TN", "FP", "FN"],
                 hole=0.45,
-                marker_colors=[RING_COLORS["TP"], RING_COLORS["TN"],
-                               RING_COLORS["FP"], RING_COLORS["FN"]],
+                marker_colors=[
+                    _RING_COLORS["TP"], _RING_COLORS["TN"],
+                    _RING_COLORS["FP"], _RING_COLORS["FN"],
+                ],
+                direction="counterclockwise",
+                sort=False,
+                rotation=90,
                 showlegend=(i == df.index[0]),   # legend only on first
                 hovertemplate="<b>%{label}</b><br>Count: %{value:,}<br>%{percent}<extra></extra>",
                 textposition="inside",
@@ -308,3 +343,23 @@ def plot_combination_rings(results_dir: str, filters: dict | None = None) -> lis
     fig = _donut_grid(df, "inhibitor_combination",
                       "Performance by Drug Combination", n_cols=4)
     return [fig]
+
+
+def plot_funnel_efficiency(results_dir: str, filters: dict | None = None) -> list[go.Figure]:
+    """Modelling efficiency funnel: Total Combinations → Priority Experiments → Synergies.
+
+    No filter support — shows whole-tissue aggregate counts.
+    """
+    try:
+        from synco.plotting.performance import plot_funnel as _fn
+    except ImportError:
+        logger.warning("synco.plotting.performance.plot_funnel not available")
+        return []
+
+    r = load(results_dir)
+    try:
+        fig = _fn(results=r, show=False)
+        return [fig] if fig is not None else []
+    except Exception:
+        logger.exception("plot_funnel_efficiency failed for %s", results_dir)
+        return []

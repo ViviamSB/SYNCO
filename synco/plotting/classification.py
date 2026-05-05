@@ -258,7 +258,8 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
         fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
         fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of performance metrics across cell lines",
-        font=dict(size=15), height=800, width=600, margin=dict(l=10, r=10, t=50, b=150))
+        plot_bgcolor='#F0F8FF',
+        font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
     if return_fig:
         figs.append((fig, 'plotly'))
@@ -281,7 +282,8 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
 
         fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
         fig.add_annotation(x=metric, y=-0.2, yref='paper', text=f"Mean: {mean_value:.2f}" + f"<br>Median: {median_value:.2f}" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors2[metric_list2.index(metric)], borderwidth=1, borderpad=4, align='center')
-    fig.update_layout(title_text=f"Summary of classification metrics", font=dict(size=15), height=800, width=600, margin=dict(t=50, b=150, l=10, r=10))
+    fig.update_layout(title_text=f"Summary of classification metrics",
+                      plot_bgcolor='#F0F8FF',font=dict(size=15), height=800, width=650, margin=dict(t=50, b=150, l=10, r=10))
     if return_fig:
         figs.append((fig, 'plotly'))
     else:
@@ -340,6 +342,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         fig.add_trace(go.Box(y=classification_metrics_combi_scaled_df[metric], name=metric, marker_color=metric_colors1[metric_list1.index(metric)], boxpoints='all', boxmean=True, hoverinfo='y+text', hovertext=classification_metrics_combi_scaled_df[metric].index))
         fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of metrics across combinations",
+                      plot_bgcolor='#F0F8FF',
         font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
     if return_fig:

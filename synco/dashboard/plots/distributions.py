@@ -287,205 +287,93 @@ def plot_experimental(
 def plot_predicted(
     results_dir: str, filters: dict | None = None
 ) -> list[go.Figure]:
-    """Predicted synergy distribution: violin per mechanism + median-IQR scatter.
+    """Predicted synergy distribution per inhibitor group.
 
+    Delegates to make_pred_distribution_plots for violin per inhibitor group
+    and mechanism summary table.
+    """
+    try:
+        from synco.plotting.pred_distributions import make_pred_distribution_plots
+    except ImportError:
+        logger.warning("synco.plotting.pred_distributions not available")
+        return []
+
+    try:
+        result = make_pred_distribution_plots(results_dir, plots_dir=None, return_fig=True)
+        return [fig for fig, _ in (result or [])]
+    except Exception:
+        logger.exception("make_pred_distribution_plots failed for %s", results_dir)
+        return []
+
+
+def plot_predicted_by_inhibitor_group(
+    results_dir: str, filters: dict | None = None
+) -> list[go.Figure]:
+    """Violin plots of predicted synergy grouped by inhibitor group pair.
+
+    Always groups by inhibitor_group_A | inhibitor_group_B regardless of
+    whether a mechanism dictionary is present.
     Filterable by: cell_line, drug, profile
     """
     r    = load(results_dir)
     pred = predictions(r)
-    d    = dicts(r)
 
     if pred is None or pred.empty:
         return []
 
-    # Identify meta vs cell-line columns
     meta_cols = [c for c in pred.columns if c in _PRED_META]
     cl_cols   = [c for c in pred.columns if c not in _PRED_META]
-    if not cl_cols:
+    if not cl_cols or "inhibitor_group_A" not in pred.columns:
         return []
 
-    # Melt wide → long
     melt = pred.melt(id_vars=meta_cols, value_vars=cl_cols,
                      var_name="cell_line", value_name="synergy")
-    melt["synergy"] = pd.to_numeric(melt["synergy"], errors="coerce") * -1  # negate (higher = better)
+    melt["synergy"] = pd.to_numeric(melt["synergy"], errors="coerce") * -1
 
-    # Derive moa_group from mechanism dict or inhibitor groups
-    pm = d.get("mechanism_PD_dict") or d.get("PD_mechanism_dict") or {}
-    def _moa(k):
-        val = pm.get(k)
-        return val.get("Mechanism") if isinstance(val, dict) else (val if isinstance(val, str) else None)
+    ig_b = melt["inhibitor_group_B"] if "inhibitor_group_B" in melt.columns \
+           else melt["inhibitor_group_A"]
+    melt["group"] = melt["inhibitor_group_A"].astype(str) + " | " + ig_b.astype(str)
 
-    if "inhibitor_group_A" in melt.columns:
-        melt["moa_group_A"] = melt["inhibitor_group_A"].astype(str)
-        melt["moa_group_B"] = melt["inhibitor_group_B"].astype(str) if "inhibitor_group_B" in melt.columns else melt["moa_group_A"]
-    else:
-        melt["moa_group_A"] = melt["PD_A"].map(_moa).fillna("Unknown") if "PD_A" in melt.columns else "Unknown"
-        melt["moa_group_B"] = melt["PD_B"].map(_moa).fillna("Unknown") if "PD_B" in melt.columns else "Unknown"
-
-    melt["mechanism"] = melt["moa_group_A"] + " | " + melt["moa_group_B"]
-
-    # Apply filters
     melt = apply_filters(
         melt, filters,
         cell_line_col="cell_line",
         combi_col="inhibitor_combination",
         drug_cols=("drug_name_A", "drug_name_B"),
-        profile_cols=("moa_group_A", "moa_group_B", "mechanism"),
+        profile_cols=("group", "inhibitor_group_A", "inhibitor_group_B"),
     )
     check_empty(melt, "current filters")
 
-    mech_order = (
-        melt.groupby("mechanism")["synergy"]
+    group_order = (
+        melt.groupby("group")["synergy"]
         .median().sort_values(ascending=False).index.tolist()
     )
-    mech_colors = _color_map(mech_order)
+    colors = _color_map(group_order)
 
-    # ── Pair-level table ─────────────────────────────────────────────────────
-    pair_cols = [c for c in ("PD_A", "PD_B", "drug_name_A", "drug_name_B",
-                             "moa_group_A", "moa_group_B") if c in melt.columns]
-    pair_group = melt.groupby(pair_cols)["synergy"].agg(
-        median="median", mean="mean", iqr=lambda x: float(np.percentile(x, 75) - np.percentile(x, 25)),
-        n="count"
-    ).reset_index() if pair_cols else pd.DataFrame()
-
-    if not pair_group.empty:
-        pair_group["PD_pair"] = (
-            pair_group["PD_A"].astype(str) + " | " + pair_group["PD_B"].astype(str)
-            if "PD_A" in pair_group.columns else "pair"
-        )
-        pair_group["is_selected"] = pair_group["median"].abs() > pair_group["median"].abs().quantile(0.8)
-
-    # ── Figure: 2 panels ─────────────────────────────────────────────────────
-    fig = make_subplots(
-        rows=1, cols=2,
-        column_widths=[0.55, 0.45],
-        subplot_titles=["Predicted Synergy by Mechanism", "Pair Median vs Consistency"],
-        horizontal_spacing=0.1,
-    )
-
-    # Panel (a): Violin per mechanism
-    for mech in mech_order:
-        sub = melt[melt["mechanism"] == mech]["synergy"].dropna()
-        color = mech_colors.get(mech, "#757575")
-        fig.add_trace(
-            go.Violin(
-                y=sub,
-                name=mech,
-                box_visible=True,
-                points="all",
-                jitter=0.3,
-                pointpos=0,
-                marker_size=3,
-                line_color=color,
-                fillcolor=color,
-                opacity=0.5,
-                hovertemplate=f"<b>{mech}</b><br>Synergy: %{{y:.3f}}<extra></extra>",
-                showlegend=False,
-            ),
-            row=1, col=1,
-        )
-
-    # Panel (b): Scatter median vs -IQR
-    if not pair_group.empty:
-        for mech in mech_order:
-            sub = pair_group[pair_group.get("moa_group_A", pd.Series()) == mech] if "moa_group_A" in pair_group.columns else pair_group
-            if sub.empty:
-                sub = pair_group  # fallback: show all if grouping doesn't work
-            color = mech_colors.get(mech, "#757575")
-            hover_parts = ["<b>%{customdata[0]}</b>", "Median: %{x:.3f}", "-IQR: %{y:.3f}"]
-            drug_lbl = ""
-            if "drug_name_A" in pair_group.columns:
-                hover_parts += ["Drug A: %{customdata[1]}", "Drug B: %{customdata[2]}"]
-            hover_tpl = "<br>".join(hover_parts) + "<extra></extra>"
-
-            custom = sub[["PD_pair"] + (
-                ["drug_name_A", "drug_name_B"] if "drug_name_A" in sub.columns else []
-            )].values
-
-            fig.add_trace(
-                go.Scatter(
-                    x=sub["median"],
-                    y=-sub["iqr"],
-                    mode="markers",
-                    marker=dict(
-                        size=sub["n"].clip(upper=20) if "n" in sub.columns else 8,
-                        color=color,
-                        symbol=["diamond" if v else "circle" for v in sub.get("is_selected", [False]*len(sub))],
-                        opacity=0.8,
-                    ),
-                    name=mech,
-                    hovertemplate=hover_tpl,
-                    customdata=custom,
-                    showlegend=True,
-                ),
-                row=1, col=2,
-            )
-            break  # only one pass — show all pairs coloured by mechanism below
-
-        # Re-do panel (b) properly if moa_group_A is available
-        if "moa_group_A" in pair_group.columns:
-            # clear previous traces for col=2
-            fig = make_subplots(
-                rows=1, cols=2,
-                column_widths=[0.55, 0.45],
-                subplot_titles=["Predicted Synergy by Mechanism", "Pair Median vs Consistency"],
-                horizontal_spacing=0.1,
-            )
-            for mech in mech_order:
-                sub = melt[melt["mechanism"] == mech]["synergy"].dropna()
-                color = mech_colors.get(mech, "#757575")
-                fig.add_trace(
-                    go.Violin(
-                        y=sub, name=mech, box_visible=True, points="all",
-                        jitter=0.3, pointpos=0, marker_size=3,
-                        line_color=color, fillcolor=color, opacity=0.5,
-                        hovertemplate=f"<b>{mech}</b><br>Synergy: %{{y:.3f}}<extra></extra>",
-                        showlegend=False,
-                    ),
-                    row=1, col=1,
-                )
-            for mech in mech_order:
-                sub_pairs = pair_group[
-                    (pair_group["moa_group_A"] + " | " + pair_group["moa_group_B"]) == mech
-                ] if "moa_group_A" in pair_group.columns else pair_group
-                if sub_pairs.empty:
-                    continue
-                color = mech_colors.get(mech, "#757575")
-                custom = sub_pairs[["PD_pair"] + (
-                    ["drug_name_A", "drug_name_B"] if "drug_name_A" in sub_pairs.columns else []
-                )].values
-                fig.add_trace(
-                    go.Scatter(
-                        x=sub_pairs["median"],
-                        y=-sub_pairs["iqr"],
-                        mode="markers",
-                        marker=dict(
-                            size=8,
-                            color=color,
-                            symbol=["diamond" if v else "circle"
-                                    for v in sub_pairs.get("is_selected", [False]*len(sub_pairs))],
-                            opacity=0.8,
-                        ),
-                        name=mech,
-                        hovertemplate=(
-                            "<b>%{customdata[0]}</b><br>"
-                            "Median: %{x:.3f}<br>"
-                            "-IQR: %{y:.3f}<extra></extra>"
-                        ),
-                        customdata=custom,
-                        showlegend=True,
-                    ),
-                    row=1, col=2,
-                )
+    fig = go.Figure()
+    for g in group_order:
+        sub = melt[melt["group"] == g]["synergy"].dropna()
+        color = colors.get(g, "#757575")
+        fig.add_trace(go.Violin(
+            y=sub,
+            name=g,
+            box_visible=True,
+            points="all",
+            jitter=0.3,
+            pointpos=0,
+            marker_size=3,
+            line_color=color,
+            fillcolor=color,
+            opacity=0.5,
+            hovertemplate=f"<b>{g}</b><br>Synergy: %{{y:.3f}}<extra></extra>",
+            showlegend=False,
+        ))
 
     fig.update_layout(
-        title="Predicted Synergy Distributions",
+        title=dict(text="Predicted Synergy by Inhibitor Group", x=0.5),
         height=500,
         template="plotly_white",
-        margin=dict(l=40, r=20, t=80, b=40),
-        legend=dict(orientation="v", x=1.02, y=1),
-        xaxis2_title="Median Synergy",
-        yaxis2_title="− IQR (Consistency)",
-        yaxis1_title="Predicted Synergy Score",
+        margin=dict(l=40, r=20, t=80, b=80),
+        yaxis_title="Predicted Synergy Score",
+        xaxis_title="Inhibitor Group Pair",
     )
     return [fig]
