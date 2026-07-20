@@ -1,0 +1,9 @@
+include LICENSE
+include README.md
+include INSTALLATION.md
+include QUICKSTART.md
+include config_guide.md
+include roc_pr_metrics_guide.md
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude .git *

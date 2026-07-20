@@ -122,7 +122,7 @@ python -m synco -c examples/synco_example_config.json --synergies_filename data/
 Developed by Viviam Solangeli Bermudez Paiva under the FLobak Lab, https://github.com/druglogics, Norwegian University of Science and Technology - NTNU.
 
 ## License
-This project is licensed under the [License Name]. See the `LICENSE` file for details.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 ## Contact
 For questions or feedback, please contact Viviam Bermudez at viviam.bermudez@ntnu.no or viviambermudez@gmail.com

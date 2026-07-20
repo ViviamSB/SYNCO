@@ -9,6 +9,7 @@ from sklearn.metrics import (
     roc_curve,
     f1_score,
     balanced_accuracy_score,
+    matthews_corrcoef,
 )
 from ..utils import save_file
 import plotly.graph_objects as go
@@ -44,12 +45,43 @@ def _melt_cell_lines(
 
     return df
 
+
+def _normalize_cell_line_name(val):
+    if val is None or pandas.isna(val):
+        return pandas.NA
+    s = str(val).strip().upper()
+    if s in {'', '-', 'NA', 'N/A', 'NONE'}:
+        return pandas.NA
+    s = re.sub(r'[^A-Z0-9]', '', s)
+    return s if s != '' else pandas.NA
+
+
+def _coerce_numeric_value(val):
+    coerced = pandas.to_numeric(val, errors='coerce')
+    if pandas.isna(coerced):
+        return np.nan
+    return float(coerced)
+
+
+def _empty_cell_line_diagnostics(cell_line: str) -> Dict[str, Union[str, int, float]]:
+    return {
+        'cell_line': cell_line,
+        'total_rows': 0,
+        'valid_matched_rows': 0,
+        'missing_predictions': 0,
+        'invalid_experimental_values': 0,
+        'invalid_predictions': 0,
+        'post_filter_positives': np.nan,
+        'post_filter_negatives': np.nan,
+        'failure_reason': 'no_experimental',
+    }
+
 #/////////////////////////////////////////////////////
 def _collect_true_scores(
         df_experiment: pandas.DataFrame, # full df or drug_names_synergies_df
         df_predictions: pandas.DataFrame, # full df or drug_names_synergies_df
         cell_line_list: Optional[List[str]] = None
-) -> tuple[dict, dict, list]:
+) -> tuple[dict, dict, list, Dict[str, Dict[str, Union[str, int, float]]]]:
     """
     Collect true scores and predicted scores for ROC calculation.
 
@@ -61,6 +93,7 @@ def _collect_true_scores(
     y_true_dict = {}
     y_score_dict = {}
     skipped_cell_lines = []
+    diagnostics_by_cell_line: Dict[str, Dict[str, Union[str, int, float]]] = {}
 
     # Ensure columns exist and create normalized match column
     df_exp = df_experiment.copy()
@@ -71,24 +104,12 @@ def _collect_true_scores(
     if 'cell_line' not in df_pred.columns:
         df_pred['cell_line'] = pandas.NA
 
-    # Normalization helper: uppercase and remove non-alphanumeric characters
-    def _normalize_name(val):
-        if val is None or pandas.isna(val):
-            return pandas.NA
-        s = str(val).strip().upper()
-        # Treat common placeholders as missing
-        if s in {'', '-', 'NA', 'N/A', 'NONE'}:
-            return pandas.NA
-        # Remove any non-alphanumeric characters (e.g., '-', '_', spaces)
-        s = re.sub(r'[^A-Z0-9]', '', s)
-        return s if s != '' else pandas.NA
-
-    df_exp['cell_line_norm'] = df_exp['cell_line'].apply(_normalize_name)
-    df_pred['cell_line_norm'] = df_pred['cell_line'].apply(_normalize_name)
+    df_exp['cell_line_norm'] = df_exp['cell_line'].apply(_normalize_cell_line_name)
+    df_pred['cell_line_norm'] = df_pred['cell_line'].apply(_normalize_cell_line_name)
 
     # Build the list of normalized cell lines to iterate
     if cell_line_list is not None:
-        norm_cell_lines = [_normalize_name(x) for x in cell_line_list]
+        norm_cell_lines = [_normalize_cell_line_name(x) for x in cell_line_list]
     else:
         norm_cell_lines = list(df_exp['cell_line_norm'].unique())
 
@@ -103,9 +124,14 @@ def _collect_true_scores(
         if original_label is None:
             original_label = norm_cell
 
+        diagnostics = _empty_cell_line_diagnostics(original_label)
+        diagnostics['failure_reason'] = 'no_valid_matches'
+
         # Filter for the current normalized cell line
         df_exp_cl = df_exp[df_exp['cell_line_norm'] == norm_cell]
         df_pred_cl = df_pred[df_pred['cell_line_norm'] == norm_cell]
+
+        diagnostics['total_rows'] = int(len(df_exp_cl))
 
         y_true_list = []
         y_score_list = []
@@ -113,35 +139,66 @@ def _collect_true_scores(
         # If there are no experimental rows for this cell line, record and continue
         if df_exp_cl.empty:
             skipped_cell_lines.append((original_label, 'no_experimental'))
+            diagnostics_by_cell_line[original_label] = diagnostics
             continue
 
         # Loop through each perturbation in the experimental df
         for perturbation in df_exp_cl['Perturbation'].unique():
             exp_rows = df_exp_cl[df_exp_cl['Perturbation'] == perturbation]
             true_values = exp_rows['synergy'].tolist()
+            valid_true_values = []
 
-            # Prediction value (single value per perturbation)
+            for true_val in true_values:
+                true_numeric = _coerce_numeric_value(true_val)
+                if np.isnan(true_numeric):
+                    diagnostics['invalid_experimental_values'] += 1
+                    continue
+                valid_true_values.append(true_numeric)
+
+            # Prediction values for this perturbation; use first valid value.
             pred_match = df_pred_cl[df_pred_cl['Perturbation'] == perturbation]
 
             if pred_match.empty:
-                # No prediction for this perturbation -> note and skip
+                if valid_true_values:
+                    diagnostics['missing_predictions'] += int(len(valid_true_values))
                 continue
-            pred_value = pred_match['synergy'].values[0]
 
-            # Repeat the prediction value for each experimental entry
-            for true_val in true_values:
-                y_true_list.append(true_val)
+            pred_numeric = pred_match['synergy'].apply(_coerce_numeric_value)
+            diagnostics['invalid_predictions'] += int(pred_numeric.isna().sum())
+            valid_pred_values = pred_numeric.dropna().tolist()
+
+            if not valid_pred_values:
+                if valid_true_values:
+                    diagnostics['missing_predictions'] += int(len(valid_true_values))
+                continue
+
+            if not valid_true_values:
+                continue
+
+            if len(set(valid_pred_values)) > 1 and len(valid_pred_values) > 1:
+                print(
+                    f"Warning: {original_label} perturbation {perturbation} has multiple distinct valid predictions; "
+                    f"using first valid value {valid_pred_values[0]}"
+                )
+            pred_value = valid_pred_values[0]
+
+            # Repeat the prediction value for each valid experimental entry
+            for true_numeric in valid_true_values:
+                y_true_list.append(true_numeric)
                 y_score_list.append(pred_value)
+                diagnostics['valid_matched_rows'] += 1
 
         # Save results for this cell line if we collected matching pairs
         if y_true_list and y_score_list:
             y_true_dict[original_label] = np.array(y_true_list)
             y_score_dict[original_label] = np.array(y_score_list)
+            diagnostics['failure_reason'] = 'success'
         else:
             # If we had experimental rows but no matching predictions for any perturbation
             skipped_cell_lines.append((original_label, 'no_predictions'))
+        diagnostics_by_cell_line[original_label] = diagnostics
 
-    return y_true_dict, y_score_dict, skipped_cell_lines
+    return y_true_dict, y_score_dict, skipped_cell_lines, diagnostics_by_cell_line
 
 #/////////////////////////////////////////////////////
 def _calculate_roc_metrics(
@@ -153,6 +210,7 @@ def _calculate_roc_metrics(
         n_bootstrap: Optional[int] = None,
         ci_level: float = 0.95,
         rng: Optional[np.random.Generator] = None,
+    verbose: bool = False,
 ):
     """
     Calculate ROC, PR, F1-score, MCC, balanced accuracy, and optional bootstrap CIs.
@@ -171,7 +229,11 @@ def _calculate_roc_metrics(
     
     # Check if we have both classes (0 and 1)
     if len(np.unique(y_true_binary)) <= 1:
-        print(f"Warning: {cell_line} has only one class (all {np.unique(y_true_binary)[0]})")
+        if verbose and compute_traces:
+            print(
+                f"Warning: {cell_line} has only one class "
+                f"(all {np.unique(y_true_binary)[0]})"
+            )
         return None, None, None
         
     try:
@@ -184,6 +246,11 @@ def _calculate_roc_metrics(
             bal_acc = balanced_accuracy_score(y_true_binary, y_score_binary)
         except ValueError:
             bal_acc = np.nan
+
+        try:
+            mcc = matthews_corrcoef(y_true_binary, y_score_binary)
+        except ValueError:
+            mcc = np.nan
 
         fpr = tpr = roc_thresholds = precision = recall = None
         if compute_traces:
@@ -226,6 +293,7 @@ def _calculate_roc_metrics(
             'roc_auc': roc_auc,
             'pr_auc': pr_auc,
             'f1_score': f1,
+            'mcc': mcc,
             'balanced_accuracy': bal_acc,
             'roc_auc_ci_low': roc_auc_ci_low,
             'roc_auc_ci_high': roc_auc_ci_high,
@@ -233,7 +301,10 @@ def _calculate_roc_metrics(
             'pr_auc_ci_high': pr_auc_ci_high,
             'n_positive': int(np.sum(y_true_binary)),
             'n_negative': int(len(y_true_binary) - np.sum(y_true_binary)),
+            'post_filter_positives': int(np.sum(y_true_binary)),
+            'post_filter_negatives': int(len(y_true_binary) - np.sum(y_true_binary)),
             'pred_min': float(y_score.min()),
+            'failure_reason': 'success',
         }
         if compute_traces and fpr is not None and tpr is not None:
             roc_results['fpr'] = fpr.tolist()
@@ -261,8 +332,9 @@ def _calculate_roc_metrics(
         
         return roc_results, roc_trace, pr_trace
         
-    except ValueError:
-        # Silently handle ROC calculation errors (e.g., NaN values, insufficient data)
+    except ValueError as error:
+        if verbose:
+            print(f"ROC metrics failed for {cell_line}: {error}")
         return None, None, None
 
     return None, None, None
@@ -270,47 +342,38 @@ def _calculate_roc_metrics(
 #/////////////////////////////////////////////////////
 def _make_metrics_df(
         all_cell_lines: list,
-        successful_results: dict
+    successful_results: dict
 ):
     """
     Extract metrics and create dataframe with NaN for failed calculations.
     """
     data = []
     for cell_line in all_cell_lines:
-        if cell_line in successful_results:
-            result = successful_results[cell_line]
-            data.append({
-                'cell_line': cell_line,
-                'threshold': result.get('threshold', np.nan),
-                'roc_auc': result['roc_auc'],
-                'pr_auc': result['pr_auc'],
-                'f1_score': result['f1_score'],
-                'balanced_accuracy': result.get('balanced_accuracy', np.nan),
-                'roc_auc_ci_low': result.get('roc_auc_ci_low', np.nan),
-                'roc_auc_ci_high': result.get('roc_auc_ci_high', np.nan),
-                'pr_auc_ci_low': result.get('pr_auc_ci_low', np.nan),
-                'pr_auc_ci_high': result.get('pr_auc_ci_high', np.nan),
-                'n_positive': result.get('n_positive', np.nan),
-                'n_negative': result.get('n_negative', np.nan),
-                'pred_min': result.get('pred_min', np.nan),
-            })
-        else:
-            # Add NaN values for failed calculations
-            data.append({
-                'cell_line': cell_line,
-                'threshold': np.nan,
-                'roc_auc': np.nan,
-                'pr_auc': np.nan,
-                'f1_score': np.nan,
-                'balanced_accuracy': np.nan,
-                'roc_auc_ci_low': np.nan,
-                'roc_auc_ci_high': np.nan,
-                'pr_auc_ci_low': np.nan,
-                'pr_auc_ci_high': np.nan,
-                'n_positive': np.nan,
-                'n_negative': np.nan,
-                'pred_min': np.nan,
-            })
+        result = successful_results.get(cell_line, {})
+        data.append({
+            'cell_line': cell_line,
+            'threshold': result.get('threshold', np.nan),
+            'roc_auc': result.get('roc_auc', np.nan),
+            'pr_auc': result.get('pr_auc', np.nan),
+            'f1_score': result.get('f1_score', np.nan),
+            'mcc': result.get('mcc', np.nan),
+            'balanced_accuracy': result.get('balanced_accuracy', np.nan),
+            'roc_auc_ci_low': result.get('roc_auc_ci_low', np.nan),
+            'roc_auc_ci_high': result.get('roc_auc_ci_high', np.nan),
+            'pr_auc_ci_low': result.get('pr_auc_ci_low', np.nan),
+            'pr_auc_ci_high': result.get('pr_auc_ci_high', np.nan),
+            'n_positive': result.get('n_positive', np.nan),
+            'n_negative': result.get('n_negative', np.nan),
+            'post_filter_positives': result.get('post_filter_positives', np.nan),
+            'post_filter_negatives': result.get('post_filter_negatives', np.nan),
+            'pred_min': result.get('pred_min', np.nan),
+            'total_rows': result.get('total_rows', np.nan),
+            'valid_matched_rows': result.get('valid_matched_rows', np.nan),
+            'missing_predictions': result.get('missing_predictions', np.nan),
+            'invalid_experimental_values': result.get('invalid_experimental_values', np.nan),
+            'invalid_predictions': result.get('invalid_predictions', np.nan),
+            'failure_reason': result.get('failure_reason', 'no_experimental'),
+        })
     
     df = pandas.DataFrame(data)
     return df
@@ -319,6 +382,7 @@ def _make_metrics_df(
 def _collect_roc_metrics(
     y_true_dict,
     y_score_dict,
+    diagnostics_by_cell_line: Optional[Dict[str, Dict[str, Union[str, int, float]]]] = None,
     all_cell_lines: Optional[List[str]] = None,
     threshold: float = 0.01,
     threshold_offsets: Optional[List[float]] = None,
@@ -333,7 +397,7 @@ def _collect_roc_metrics(
     traces_pr = []
     rocauc_score_list = []
     prauc_score_list = []
-    successful_results = {}  # Only successful calculations
+    successful_results = dict(diagnostics_by_cell_line or {})
     sweep_results = {}       # Per-cell-line threshold sweep summaries
     # Use provided list of all cell lines (from config) if available, otherwise
     # fall back to the cell lines that were actually present in the experimental data
@@ -361,6 +425,7 @@ def _collect_roc_metrics(
                 compute_traces=False,
                 n_bootstrap=None,
                 ci_level=ci_level,
+                verbose=verbose,
             )
             if metrics and metrics[0] is not None:
                 sweep.append({
@@ -378,22 +443,36 @@ def _collect_roc_metrics(
 
     for cell_line, y_true in y_true_dict.items():
         y_score = y_score_dict.get(cell_line, None)
+        cell_line_record = successful_results.get(cell_line, {'cell_line': cell_line})
+        y_true_binary = (y_true > threshold).astype(int)
+        cell_line_record['post_filter_positives'] = int(np.sum(y_true_binary))
+        cell_line_record['post_filter_negatives'] = int(len(y_true_binary) - np.sum(y_true_binary))
         
         if y_score is None:
             if verbose:
                 print(f"No prediction data available for {cell_line}")
+            cell_line_record['failure_reason'] = 'no_predictions'
+            successful_results[cell_line] = cell_line_record
             continue
         
         # Calculate ROC/PR metrics
-        metrics = _calculate_roc_metrics(
-            y_true,
-            y_score,
-            cell_line,
-            threshold=threshold,
-            compute_traces=True,
-            n_bootstrap=n_bootstrap,
-            ci_level=ci_level,
-        )
+        try:
+            metrics = _calculate_roc_metrics(
+                y_true,
+                y_score,
+                cell_line,
+                threshold=threshold,
+                compute_traces=True,
+                n_bootstrap=n_bootstrap,
+                ci_level=ci_level,
+                verbose=verbose,
+            )
+        except ValueError as error:
+            if verbose:
+                print(f"ROC metrics failed for {cell_line}: {error}")
+            cell_line_record['failure_reason'] = 'value_error'
+            successful_results[cell_line] = cell_line_record
+            continue
         
         # Check if all three values are returned and not None
         if metrics and all(item is not None for item in metrics):
@@ -403,7 +482,8 @@ def _collect_roc_metrics(
             rocauc_score_list.append(roc_results['roc_auc'])
             prauc_score_list.append(roc_results['pr_auc'])
             # Store successful results for DataFrame creation
-            successful_results[cell_line] = roc_results
+            cell_line_record.update(roc_results)
+            successful_results[cell_line] = cell_line_record
             # Threshold sweep summary (optional)
             sweep = _run_threshold_sweep(cell_line, y_true, y_score)
             if sweep:
@@ -411,6 +491,8 @@ def _collect_roc_metrics(
         else:
             if verbose:
                 print(f"ROC Metrics could not be calculated for {cell_line}")
+            cell_line_record['failure_reason'] = 'single_class'
+            successful_results[cell_line] = cell_line_record
     
     # Create metrics DataFrame including failed calculations with NaN
     metrics_df = _make_metrics_df(all_cell_lines, successful_results)
@@ -449,6 +531,8 @@ def _save_curves_json(
     
     # Extract ROC curve data from successful_results (which has fpr, tpr, etc.)
     for cell_line, result in successful_results.items():
+        if pandas.isna(result.get('roc_auc', np.nan)):
+            continue
         roc_curve_data = {
             'cell_line': cell_line,
             'auc': float(result['roc_auc']),
@@ -530,7 +614,7 @@ def calculate_roc_metrics(
     df_pred = _melt_cell_lines(df_predictions, cell_line_list_cleaned)
 
     # Collect true scores (use cleaned cell_line_list for matching)
-    y_true_dict, y_score_dict, skipped_cell_lines = _collect_true_scores(
+    y_true_dict, y_score_dict, skipped_cell_lines, diagnostics_by_cell_line = _collect_true_scores(
         df_experiment,
         df_pred,
         cell_line_list=cell_line_list_cleaned
@@ -541,6 +625,7 @@ def calculate_roc_metrics(
     roc_metrics_results = _collect_roc_metrics(
         y_true_dict,
         y_score_dict,
+        diagnostics_by_cell_line=diagnostics_by_cell_line,
         all_cell_lines=cell_line_list_cleaned,
         threshold=threshold,
         threshold_offsets=threshold_offsets,
