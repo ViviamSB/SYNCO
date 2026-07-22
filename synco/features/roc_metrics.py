@@ -56,6 +56,22 @@ def _normalize_cell_line_name(val):
     return s if s != '' else pandas.NA
 
 
+def _normalize_perturbation_pair(val):
+    """
+    Create an order-independent key for a two-PD perturbation.
+    """
+    if val is None or pandas.isna(val):
+        return pandas.NA
+
+    text = str(val).strip()
+    parts = [part.strip() for part in text.split('-')]
+
+    if len(parts) != 2 or not all(parts):
+        return text
+
+    return '-'.join(sorted(parts))
+
+
 def _coerce_numeric_value(val):
     coerced = pandas.to_numeric(val, errors='coerce')
     if pandas.isna(coerced):
@@ -107,6 +123,26 @@ def _collect_true_scores(
     df_exp['cell_line_norm'] = df_exp['cell_line'].apply(_normalize_cell_line_name)
     df_pred['cell_line_norm'] = df_pred['cell_line'].apply(_normalize_cell_line_name)
 
+    if 'Perturbation' not in df_exp.columns:
+        raise ValueError(
+            "Experimental dataframe must contain a 'Perturbation' column"
+        )
+
+    if 'Perturbation' not in df_pred.columns:
+        raise ValueError(
+            "Prediction dataframe must contain a 'Perturbation' column"
+        )
+
+    df_exp['perturbation_norm'] = (
+        df_exp['Perturbation']
+        .apply(_normalize_perturbation_pair)
+    )
+
+    df_pred['perturbation_norm'] = (
+        df_pred['Perturbation']
+        .apply(_normalize_perturbation_pair)
+    )
+
     # Build the list of normalized cell lines to iterate
     if cell_line_list is not None:
         norm_cell_lines = [_normalize_cell_line_name(x) for x in cell_line_list]
@@ -142,21 +178,22 @@ def _collect_true_scores(
             diagnostics_by_cell_line[original_label] = diagnostics
             continue
 
-        # Loop through each perturbation in the experimental df
-        for perturbation in df_exp_cl['Perturbation'].unique():
-            exp_rows = df_exp_cl[df_exp_cl['Perturbation'] == perturbation]
+        # Loop through order-independent perturbation pairs
+        for perturbation_norm in (df_exp_cl['perturbation_norm'].dropna().unique()):
+            exp_rows = df_exp_cl[df_exp_cl['perturbation_norm'] == perturbation_norm]
+            # Keep the original label only for messages/debugging.
+            perturbation = str(exp_rows['Perturbation'].iloc[0])
             true_values = exp_rows['synergy'].tolist()
             valid_true_values = []
-
             for true_val in true_values:
                 true_numeric = _coerce_numeric_value(true_val)
                 if np.isnan(true_numeric):
                     diagnostics['invalid_experimental_values'] += 1
                     continue
                 valid_true_values.append(true_numeric)
-
-            # Prediction values for this perturbation; use first valid value.
-            pred_match = df_pred_cl[df_pred_cl['Perturbation'] == perturbation]
+            # Match predictions using the order-independent pair key.
+            pred_match = df_pred_cl[
+                df_pred_cl['perturbation_norm'] == perturbation_norm]
 
             if pred_match.empty:
                 if valid_true_values:
