@@ -181,7 +181,9 @@ def _prepare_cell_df(roc_df: Optional[pd.DataFrame], comparison_cell_df: Optiona
     return classification_metrics_df
 
 
-def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False):
+def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False,
+                    height: int = 900, width: int = 900
+                       ):
     """Generate the BY CELL LINE plots and save them to `plots_path`."""
     plots_path = os.path.join(plots_path, '')
     metric_list1 = ['Accuracy', 'Recall', 'Precision']
@@ -212,7 +214,7 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     # HEATMAP
     cm_df = classification_metrics_df.sort_values(by='Accuracy', ascending=True)
     fig = go.Figure(data=go.Heatmap(z=cm_df[['Accuracy', 'Recall', 'Precision']].values, x=['Accuracy', 'Recall', 'Precision'], y=cm_df.index, colorscale='RdBu', colorbar=dict(title='Score'), zmin=0, zmax=100))
-    fig.update_layout(title_text="Classification metrics by cell line", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
+    fig.update_layout(title_text="Classification metrics by cell line", height=height, width=width, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
     if show:
         fig.show()
     if return_fig:
@@ -225,7 +227,7 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     classification_metrics_scaled_df = classification_metrics_scaled_df.sort_values(by=metric_list2[0], ascending=False)
     for metric in metric_list2:
         fig.add_trace(go.Bar(x=classification_metrics_scaled_df.index, y=classification_metrics_scaled_df[metric], name=metric, marker_color=metric_colors2[metric_list2.index(metric)], text=classification_metrics_scaled_df[metric].round(1), textposition='outside'))
-    fig.update_layout(title_text=f"Summary of classification metrics by cell line", barmode='group', bargap=0.3, bargroupgap=0.1, height=500, width=1500)
+    fig.update_layout(title_text=f"Summary of classification metrics by cell line", barmode='group', bargap=0.3, bargroupgap=0.1, height=height, width=width)
     if return_fig:
         figs.append((fig, 'plotly'))
     else:
@@ -237,7 +239,7 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     cm_df_f1 = classification_metrics_df.dropna(subset=['F1 Score', 'AUC-ROC', 'AUC-PR']).sort_values(by='F1 Score', ascending=True)
     if not cm_df_f1.empty:
         fig = go.Figure(data=go.Heatmap(z=cm_df_f1[['F1 Score', 'AUC-ROC', 'AUC-PR']].values, x=['F1 Score', 'AUC-ROC', 'AUC-PR'], y=cm_df_f1.index, colorscale='RdBu', colorbar=dict(title='Score'), zmin=0, zmax=1))
-        fig.update_layout(title_text="F1/AUC metrics by cell line", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
+        fig.update_layout(title_text="F1/AUC metrics by cell line", height=height, width=width, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
         if show:
             fig.show()
         if return_fig:
@@ -251,15 +253,17 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
     for metric in metric_list1:
         fig.add_trace(go.Box(y=classification_metrics_scaled_df[metric], name=metric, marker_color=metric_colors1[metric_list1.index(metric)], boxpoints='all', boxmean=True, hoverinfo='y+text', hovertext=classification_metrics_scaled_df[metric].index))
     for metric in metric_list1:
-        mean_value = classification_metrics_scaled_df[metric].mean().round(0)
-        median_value = classification_metrics_scaled_df[metric].median().round(0)
-        std_value = classification_metrics_scaled_df[metric].std().round(2)
-        n_cell_lines = classification_metrics_scaled_df[metric].notna().sum()
+        values = classification_metrics_scaled_df[metric]
+        mean_value = round(values.mean(), 0)
+        median_value = round(values.median(), 0)
+        std_value = round(values.std(), 2)
+        n_cell_lines = values.notna().sum()
+
         fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
         fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of performance metrics across cell lines",
         plot_bgcolor='#F0F8FF',
-        font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
+        font=dict(size=15), height=height, width=width, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
     if return_fig:
         figs.append((fig, 'plotly'))
@@ -283,7 +287,7 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
         fig.add_annotation(x=metric, yref='paper', y=-0.08, text=f"n ={n_cell_lines}", showarrow=False, font=dict(size=13, color='#666666'), align='center')
         fig.add_annotation(x=metric, y=-0.2, yref='paper', text=f"Mean: {mean_value:.2f}" + f"<br>Median: {median_value:.2f}" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors2[metric_list2.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text=f"Summary of classification metrics",
-                      plot_bgcolor='#F0F8FF',font=dict(size=15), height=800, width=650, margin=dict(t=50, b=150, l=10, r=10))
+                      plot_bgcolor='#F0F8FF',font=dict(size=15), height=height, width=width, margin=dict(t=50, b=150, l=10, r=10))
     if return_fig:
         figs.append((fig, 'plotly'))
     else:
@@ -295,7 +299,8 @@ def _plot_by_cell_line(classification_metrics_df: pd.DataFrame, plots_path: str,
         return figs
 
 
-def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False):
+def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bool = False, return_fig: bool = False
+                         , height: int = 600, width: int = 500):
     """Generate BY COMBINATION plots given `combi_match_df`."""
     plots_path = os.path.join(plots_path, '')
     metric_list1 = ['Accuracy', 'Recall', 'Precision']
@@ -306,7 +311,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
     fig = go.Figure()
     for metric in metric_list1:
         fig.add_trace(go.Bar(y=classification_metrics_combi_scaled_df[metric], x=classification_metrics_combi_scaled_df.index, name=metric, orientation='v', marker_color=metric_colors1[metric_list1.index(metric)], text=classification_metrics_combi_scaled_df[metric].round(0), textposition='outside'))
-    fig.update_layout(title_text="Classification Metrics by inhibitor group combination", barmode='group', bargap=0.3, bargroupgap=0.1, height=500, width=1500, font=dict(size=14))
+    fig.update_layout(title_text="Classification Metrics by inhibitor group combination", barmode='group', bargap=0.3, bargroupgap=0.1, height=height, width=width, font=dict(size=14))
     if return_fig:
         figs.append((fig, 'plotly'))
     else:
@@ -325,7 +330,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         zmin=0,
         zmax=100
     ))
-    fig.update_layout(title_text="Predictive performance by combination", height=600, width=500, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
+    fig.update_layout(title_text="Predictive performance by combination", height=height, width=width, font=dict(size=14), margin=dict(l=150, r=50, t=100, b=50))
     if return_fig:
         figs.append((fig, 'plotly'))
     else:
@@ -343,7 +348,7 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         fig.add_annotation(x=metric, yref='paper', y=-0.2, text=f"Mean: {mean_value:.0f}%" + f"<br>Median: {median_value:.0f}%" + f"<br>Std: {std_value:.2f}", showarrow=False, bgcolor='rgba(255, 255, 255, 0.8)', bordercolor=metric_colors1[metric_list1.index(metric)], borderwidth=1, borderpad=4, align='center')
     fig.update_layout(title_text="Summary of metrics across combinations",
                       plot_bgcolor='#F0F8FF',
-        font=dict(size=15), height=800, width=650, margin=dict(l=10, r=10, t=50, b=150))
+        font=dict(size=15), height=height, width=width, margin=dict(l=10, r=10, t=50, b=150))
     fig.update_yaxes(title_text='Performance (%)')
     if return_fig:
         figs.append((fig, 'plotly'))
@@ -356,7 +361,8 @@ def _plot_by_combination(combi_match_df: pd.DataFrame, plots_path: str, show: bo
         return figs
 
 
-def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None, show: bool = False, analysis_type: Optional[str] = None, debug: bool = False, return_fig: bool = False):
+def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None, show: bool = False, analysis_type: Optional[str] = None, debug: bool = False, return_fig: bool = False
+                              , height: int = 600, width: int = 500):
     """High-level entrypoint: load -> process -> plot classification metrics.
 
     - `results_dir`: folder containing `roc_metrics_df.csv` and comparison results
@@ -439,11 +445,11 @@ def make_classification_plots(results_dir: str, plots_dir: Optional[str] = None,
 
     figs = []
     if want_cell:
-        cell_figs = _plot_by_cell_line(classification_metrics_df, plots_dir, show=show, return_fig=return_fig)
+        cell_figs = _plot_by_cell_line(classification_metrics_df, plots_dir, show=show, return_fig=return_fig, height=height, width=width)
         if return_fig and cell_figs:
             figs.extend(cell_figs)
     if want_comb:
-        combi_figs = _plot_by_combination(combi_match_df, plots_dir, show=show, return_fig=return_fig)
+        combi_figs = _plot_by_combination(combi_match_df, plots_dir, show=show, return_fig=return_fig, height=height, width=width)
         if return_fig and combi_figs:
             figs.extend(combi_figs)
 
